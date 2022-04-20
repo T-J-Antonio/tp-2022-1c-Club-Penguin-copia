@@ -5,113 +5,75 @@
 #include <commons/string.h>
 #include <commons/collections/list.h>
 
-typedef struct PARAMETROS{
-	uint32_t parametro;
-	struct PARAMETROS *sgt;
-}parametros;
-
-typedef struct INSTRUCCION {
-	char* codigo_op;
-	parametros *param;
-} instruccion;
-
-typedef struct INSTRUCCIONES {
-	instruccion instruccion_nodo;
-	struct INSTRUCCIONES *sgt;
-} instrucciones;
+typedef struct INSTRUCCION{
+	char* identificador;
+	t_list *parametros;
+}instruccion;
 
 
 
-
-
-
-void insertar_argument(struct PARAMETROS **nodo, uint32_t param){
-	parametros *nuevo_nodo = (parametros*) malloc(sizeof(parametros));
-	nuevo_nodo->sgt = NULL;
-	nuevo_nodo->parametro = param;
-
-	parametros *last = *nodo;
-
-	if(*nodo == NULL){
-		*nodo = nuevo_nodo;
-	}
-	else{
-		while(last->sgt != NULL){
-			last = last->sgt;}
-		if(last->sgt == NULL){
-			last->sgt = nuevo_nodo;
-		}
-	}
-
+void imprimir_parametros(void *param){
+	uint32_t numero = (uint32_t)atoi(param);
+	printf("%d", numero);
 }
 
-void insertar_instruccion(struct INSTRUCCIONES **nodo, instruccion una_instruccion){
-	instrucciones *nuevo_nodo = (instrucciones*) malloc(sizeof(instrucciones));
-	nuevo_nodo->sgt = NULL;
-	nuevo_nodo->instruccion_nodo = una_instruccion;
+void list_print(void * var){
+	instruccion *alo = (instruccion *) var;
 
-	instrucciones *last = *nodo;
-
-	if(*nodo == NULL){
-		*nodo = nuevo_nodo;
-	}
-	else{
-		while(last->sgt != NULL){
-			last = last->sgt;}
-		if(last->sgt == NULL){
-				last->sgt = nuevo_nodo;
-			}
-		}
-
+	printf("%s\n", alo->identificador);
+	list_iterate(alo->parametros, imprimir_parametros);
 }
 
-int main () {
-	//if (argc < 2) return 1; //ERROR: argumentos insuficientes
-	//char* path = argv[1];
+int main (int argc, char** argv) {
+	if (argc != 3) return 1; //ERROR: argumentos insuficientes
+	char* path = argv[1];
 	//int tamanio = atoi(argv[2]);
-	FILE* archivo_instrucciones = fopen("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/consola/ins.txt", "rt+");
+	FILE* archivo_instrucciones = fopen(path, "rt+");
 
-	instrucciones* lista_instrucciones = NULL;
-	instruccion una_instruccion;
-	char* todas_las_instrucciones = string_new();
-	char** lista_instrucciones_como_strings = NULL;
-	char** instruccion_separada_en_strings = NULL;
+
+	t_list * instruction_list = list_create();
+
+	char* archivo = string_new();
+	char** archivo_split = NULL;
+	char** instrucciones = NULL;
 
 	fseek(archivo_instrucciones, 0, SEEK_END);
-
 	long int sizef = ftell(archivo_instrucciones);
 	fseek(archivo_instrucciones, 0, SEEK_SET);
-	todas_las_instrucciones = malloc(sizef + 1);
-	fread(todas_las_instrucciones, sizef, 1, archivo_instrucciones);
 
-	lista_instrucciones_como_strings = string_split(todas_las_instrucciones, "\n");
+	archivo = malloc(sizef + 1);
+	fread(archivo, sizef, 1, archivo_instrucciones);
+
+	archivo_split = string_split(archivo, "\n");
 
 	int i = 0, j = 1;
-	while(lista_instrucciones_como_strings[i]) {
-		instruccion_separada_en_strings = string_split(lista_instrucciones_como_strings[i], " ");
+	while(archivo_split[i]) {
 
-		strcpy(una_instruccion.codigo_op, instruccion_separada_en_strings[0]);
-		parametros* params = NULL;
-		while(instruccion_separada_en_strings[j]) {
-			uint32_t temp = (uint32_t)atoi(instruccion_separada_en_strings[j]);
-			insertar_argument(&params, temp);
+		instruccion *temp_val =  malloc(sizeof(instruccion));
+
+		instrucciones = string_split(archivo_split[i], " ");
+		temp_val->identificador = malloc(strlen(instrucciones[0])+1);
+		strcpy(temp_val->identificador, instrucciones[0]);
+
+		temp_val->parametros = list_create();
+
+
+		while(instrucciones[j]) {
+
+			void *temp = malloc(strlen(instrucciones[j])+1);
+
+			strcpy(temp, instrucciones[j]);
+			list_add(temp_val->parametros, temp);
 			j++;
 		}
-		una_instruccion.param = params;
 
-		insertar_instruccion(&lista_instrucciones, una_instruccion);
+		list_add(instruction_list, temp_val);
+
 		i++;
 		j = 1;
 	}
+	list_iterate(instruction_list, list_print);
 
-	while(lista_instrucciones){
-		printf("instruccion: %s\n", lista_instrucciones->instruccion_nodo.codigo_op);
-		while(lista_instrucciones->instruccion_nodo.param){
-			printf("parametro: %d\n", lista_instrucciones->instruccion_nodo.param->parametro);
-			lista_instrucciones->instruccion_nodo.param = lista_instrucciones->instruccion_nodo.param->sgt;
-		}
-		lista_instrucciones = lista_instrucciones->sgt;
-	}
 
 	return 0;
 }
