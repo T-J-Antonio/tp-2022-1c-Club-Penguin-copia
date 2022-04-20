@@ -10,14 +10,12 @@ typedef struct INSTRUCCION{
 	t_list *parametros;
 }instruccion;
 
-
-
 void imprimir_parametros(void *param){
 	uint32_t numero = (uint32_t)atoi(param);
 	printf("%d", numero);
 }
 
-void list_print(void * var){
+void imprimir_lista(void * var){
 	instruccion *alo = (instruccion *) var;
 
 	printf("%s\n", alo->identificador);
@@ -25,55 +23,51 @@ void list_print(void * var){
 }
 
 int main (int argc, char** argv) {
-	if (argc != 3) return 1; //ERROR: argumentos insuficientes
+	if (argc != 3) return 1; //ERROR: cant. errónea de argumentos
 	char* path = argv[1];
-	//int tamanio = atoi(argv[2]);
+	int tamanio = atoi(argv[2]);
 	FILE* archivo_instrucciones = fopen(path, "rt+");
 
+	t_list * lista_instrucciones = list_create();
 
-	t_list * instruction_list = list_create();
-
-	char* archivo = string_new();
-	char** archivo_split = NULL;
+	char* archivo_string = string_new();
+	char** archivo_dividido = NULL;
 	char** instrucciones = NULL;
 
 	fseek(archivo_instrucciones, 0, SEEK_END);
-	long int sizef = ftell(archivo_instrucciones);
+	long int tamanio_archivo = ftell(archivo_instrucciones);
 	fseek(archivo_instrucciones, 0, SEEK_SET);
 
-	archivo = malloc(sizef + 1);
-	fread(archivo, sizef, 1, archivo_instrucciones);
+	archivo_string = malloc(tamanio_archivo + 1);
+	fread(archivo_string, tamanio_archivo, 1, archivo_instrucciones);
 
-	archivo_split = string_split(archivo, "\n");
+	archivo_dividido = string_split(archivo_string, "\n");
 
 	int i = 0, j = 1;
-	while(archivo_split[i]) {
+	while(archivo_dividido[i]) {
+		instruccion *instruccion_aux =  malloc(sizeof(instruccion));
 
-		instruccion *temp_val =  malloc(sizeof(instruccion));
+		instrucciones = string_split(archivo_dividido[i], " ");
+		instruccion_aux->identificador = malloc(strlen(instrucciones[0])+1);
+		strcpy(instruccion_aux->identificador, instrucciones[0]);
 
-		instrucciones = string_split(archivo_split[i], " ");
-		temp_val->identificador = malloc(strlen(instrucciones[0])+1);
-		strcpy(temp_val->identificador, instrucciones[0]);
-
-		temp_val->parametros = list_create();
-
+		instruccion_aux->parametros = list_create();
 
 		while(instrucciones[j]) {
+			void *parametro_aux = malloc(strlen(instrucciones[j])+1);
 
-			void *temp = malloc(strlen(instrucciones[j])+1);
-
-			strcpy(temp, instrucciones[j]);
-			list_add(temp_val->parametros, temp);
+			strcpy(parametro_aux, instrucciones[j]);
+			list_add(instruccion_aux->parametros, parametro_aux);
 			j++;
 		}
 
-		list_add(instruction_list, temp_val);
+		list_add(lista_instrucciones, instruccion_aux);
 
 		i++;
 		j = 1;
 	}
-	list_iterate(instruction_list, list_print);
 
+	list_iterate(lista_instrucciones, imprimir_lista);
 
 	return 0;
 }
