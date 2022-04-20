@@ -5,6 +5,9 @@
 #include <commons/string.h>
 #include <commons/collections/list.h>
 
+#define ERROR_ARGUMENTOS 1
+#define ERROR_ARCHIVO 2
+
 typedef struct INSTRUCCION{
 	char* identificador;
 	t_list *parametros;
@@ -23,10 +26,12 @@ void imprimir_lista(void * var){
 }
 
 int main (int argc, char** argv) {
-	if (argc != 3) return 1; //ERROR: cant. errónea de argumentos
+	if (argc != 3) return ERROR_ARGUMENTOS; //ERROR: cant. errónea de argumentos
+
 	char* path = argv[1];
 	int tamanio = atoi(argv[2]);
-	FILE* archivo_instrucciones = fopen(path, "rt+");
+	FILE* archivo_instrucciones = fopen(path, "rt");
+	if (!archivo_instrucciones) return ERROR_ARCHIVO; //ERROR: el archivo no pudo abrirse
 
 	t_list * lista_instrucciones = list_create();
 
@@ -40,6 +45,7 @@ int main (int argc, char** argv) {
 
 	archivo_string = malloc(tamanio_archivo + 1);
 	fread(archivo_string, tamanio_archivo, 1, archivo_instrucciones);
+	fclose(archivo_instrucciones);
 
 	archivo_dividido = string_split(archivo_string, "\n");
 
@@ -58,16 +64,22 @@ int main (int argc, char** argv) {
 
 			strcpy(parametro_aux, instrucciones[j]);
 			list_add(instruccion_aux->parametros, parametro_aux);
+
 			j++;
+			free(parametro_aux);
 		}
 
 		list_add(lista_instrucciones, instruccion_aux);
 
 		i++;
 		j = 1;
+		free(instruccion_aux);
 	}
 
 	list_iterate(lista_instrucciones, imprimir_lista);
+
+	free(archivo_string);
+	free(lista_instrucciones);
 
 	return 0;
 }
