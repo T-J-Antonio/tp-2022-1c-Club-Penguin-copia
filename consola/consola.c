@@ -25,6 +25,17 @@ void imprimir_lista(void * var){
 	list_iterate(alo->parametros, imprimir_parametros);
 }
 
+void parametro_destroyer(void* elem){
+	uint32_t* un_parametro = (uint32_t*) elem;
+	free(un_parametro);
+}
+
+void instruccion_destroyer(void* elem){
+	instruccion* una_instruccion = (instruccion*) elem;
+	free(una_instruccion->identificador);
+	list_destroy_and_destroy_elements(una_instruccion->parametros, parametro_destroyer);
+}
+
 int main (int argc, char** argv) {
 	if (argc != 3) return ERROR_ARGUMENTOS; //ERROR: cant. errónea de argumentos
 
@@ -66,20 +77,20 @@ int main (int argc, char** argv) {
 			list_add(instruccion_aux->parametros, parametro_aux);
 
 			j++;
-			free(parametro_aux);
 		}
 
 		list_add(lista_instrucciones, instruccion_aux);
 
 		i++;
 		j = 1;
-		free(instruccion_aux);
 	}
 
 	list_iterate(lista_instrucciones, imprimir_lista);
 
 	free(archivo_string);
-	free(lista_instrucciones);
+	free(archivo_dividido);
+	free(instrucciones);
+	list_destroy_and_destroy_elements(lista_instrucciones, instruccion_destroyer);
 
 	return 0;
 }
