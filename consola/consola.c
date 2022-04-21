@@ -33,18 +33,18 @@ int main (int argc, char** argv) {
 
 	t_list * lista_instrucciones = list_create();										//creo la lista que va a contener todos los struct instruccion
 
-	char* archivo_string = NULL;
-	char** archivo_dividido = NULL;														//inicializo vars
 
 	FILE* archivo_instrucciones = fopen(path, "rt"); 									//abro el archivo entero
 	if (!archivo_instrucciones) return ERROR_ARCHIVO; 									//ERROR: el archivo no pudo abrirse
 	long int tamanio_archivo = tamanio_del_archivo(archivo_instrucciones); 				//veo su tamaño
 
-	archivo_string = malloc(tamanio_archivo + 1); 										//asigno memoria donde va a parar lo leído
+	char* archivo_string = malloc(tamanio_archivo + 1); 								//asigno memoria donde va a parar lo leído
 	fread(archivo_string, tamanio_archivo, 1, archivo_instrucciones); 					//leo
+	if(archivo_string == NULL) return ERROR_ARCHIVO;
 	fclose(archivo_instrucciones);														//cierro
+	archivo_string[tamanio_archivo] = '\0';												// arreglo de un posible catastrofe
 
-	archivo_dividido = string_split(archivo_string, "\n");								//separo lo leído por línea ya que cada línea es una instrucción y prosigo a liberar la memoria de lo leído
+	char** archivo_dividido = string_split(archivo_string, "\n");						//separo lo leído por línea ya que cada línea es una instrucción y prosigo a liberar la memoria de lo leído
 	free(archivo_string);
 
 	agregar_instrucciones(lista_instrucciones, archivo_dividido);						//función para ir agregando cosas a la lista de structs seguido de la liberación del archivo dividido
