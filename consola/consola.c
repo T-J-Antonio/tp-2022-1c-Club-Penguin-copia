@@ -5,6 +5,7 @@
 #include <commons/string.h>
 #include <commons/collections/list.h>
 
+#define EXITO 0
 #define ERROR_ARGUMENTOS 1
 #define ERROR_ARCHIVO 2
 
@@ -17,7 +18,6 @@ typedef struct INSTRUCCION{
 //declaracion de funciones
 void imprimir_parametros(void *param);
 void imprimir_lista(void * var);
-void parametro_destroyer(void* elem);
 void instruccion_destroyer(void* elem);
 long int tamanio_del_archivo(FILE *);
 void agregar_instrucciones(t_list * , char** );
@@ -38,30 +38,30 @@ int main (int argc, char** argv) {
 
 	FILE* archivo_instrucciones = fopen(path, "rt"); 									//abro el archivo entero
 	if (!archivo_instrucciones) return ERROR_ARCHIVO; 									//ERROR: el archivo no pudo abrirse
-	long int tamanio_archivo = tamanio_del_archivo(archivo_instrucciones); 				//veo su tamanio
+	long int tamanio_archivo = tamanio_del_archivo(archivo_instrucciones); 				//veo su tamaño
 
-	archivo_string = malloc(tamanio_archivo + 1); 										//asigno memoria donde va a parar lo leido
+	archivo_string = malloc(tamanio_archivo + 1); 										//asigno memoria donde va a parar lo leído
 	fread(archivo_string, tamanio_archivo, 1, archivo_instrucciones); 					//leo
-	fclose(archivo_instrucciones);														// cierro
+	fclose(archivo_instrucciones);														//cierro
 
-	archivo_dividido = string_split(archivo_string, "\n");								//separo lo leido por linea ya que cada linea es una instruccion y prosigo a liberar la memoria de lo leido
+	archivo_dividido = string_split(archivo_string, "\n");								//separo lo leído por línea ya que cada línea es una instrucción y prosigo a liberar la memoria de lo leído
 	free(archivo_string);
 
-	agregar_instrucciones(lista_instrucciones, archivo_dividido);						//funcion para ir agregando cosas a la lista de structs seguido de la liberacion de el archivo dividido
+	agregar_instrucciones(lista_instrucciones, archivo_dividido);						//función para ir agregando cosas a la lista de structs seguido de la liberación del archivo dividido
 	free(archivo_dividido);
 
-	list_iterate(lista_instrucciones, imprimir_lista);									//recorro la lista aca deberiamos seguir con las consignas
+	list_iterate(lista_instrucciones, imprimir_lista);									//recorro la lista acá deberíamos seguir con las consignas
 	list_destroy_and_destroy_elements(lista_instrucciones, instruccion_destroyer);
 
-	return 0;
+	return EXITO;
 }
 
 
 
 
+//definición de funciones
 
-
-void agrego_instruccion(t_list * lista_ins, void * param){
+void agregar_una_instruccion(t_list * lista_ins, void * param){
 	char * inst = (char *) param;
 	instruccion *instruccion_aux =  malloc(sizeof(instruccion));
 
@@ -73,7 +73,7 @@ void agrego_instruccion(t_list * lista_ins, void * param){
 	free(instrucciones[0]);
 
 	instruccion_aux->parametros = list_create();
-	int j =1;
+	int j = 1;
 	while(instrucciones[j]) {
 		void *parametro_aux = malloc(strlen(instrucciones[j])+1);
 
@@ -90,7 +90,7 @@ void agrego_instruccion(t_list * lista_ins, void * param){
 
 void agregar_instrucciones(t_list * lista_ins, char** instrucciones){
 	void _f_aux(char *elem ){
-		agrego_instruccion(lista_ins, elem);	//DETALLE!! funcion para trabajar ya que las commons toman solo un parametro creo la auxiliar para pasar los dos que necesito a la funcion que realiza la logica
+		agregar_una_instruccion(lista_ins, elem);	//DETALLE!! funcion para trabajar ya que las commons toman solo un parametro creo la auxiliar para pasar los dos que necesito a la funcion que realiza la logica
 	}
 	string_iterate_lines(instrucciones, _f_aux);
 }
@@ -114,14 +114,9 @@ void imprimir_lista(void * var){
 	list_iterate(alo->parametros, imprimir_parametros);
 }
 
-void parametro_destroyer(void* elem){
-	uint32_t* un_parametro = (uint32_t*) elem;
-	free(un_parametro);
-}
-
 void instruccion_destroyer(void* elem){
 	instruccion* una_instruccion = (instruccion*) elem;
 	free(una_instruccion->identificador);
-	list_destroy_and_destroy_elements(una_instruccion->parametros, parametro_destroyer);
+	list_destroy_and_destroy_elements(una_instruccion->parametros, free);
 	free(una_instruccion);
 }
