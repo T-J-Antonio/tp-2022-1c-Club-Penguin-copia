@@ -34,6 +34,7 @@ void instruccion_destroyer(void* elem){
 	instruccion* una_instruccion = (instruccion*) elem;
 	free(una_instruccion->identificador);
 	list_destroy_and_destroy_elements(una_instruccion->parametros, parametro_destroyer);
+	free(una_instruccion);
 }
 
 int main (int argc, char** argv) {
@@ -46,7 +47,7 @@ int main (int argc, char** argv) {
 
 	t_list * lista_instrucciones = list_create();
 
-	char* archivo_string = string_new();
+	char* archivo_string;
 	char** archivo_dividido = NULL;
 	char** instrucciones = NULL;
 
@@ -65,8 +66,12 @@ int main (int argc, char** argv) {
 		instruccion *instruccion_aux =  malloc(sizeof(instruccion));
 
 		instrucciones = string_split(archivo_dividido[i], " ");
+		free(archivo_dividido[i]);
+
+
 		instruccion_aux->identificador = malloc(strlen(instrucciones[0])+1);
 		strcpy(instruccion_aux->identificador, instrucciones[0]);
+		free(instrucciones[0]);
 
 		instruccion_aux->parametros = list_create();
 
@@ -74,13 +79,14 @@ int main (int argc, char** argv) {
 			void *parametro_aux = malloc(strlen(instrucciones[j])+1);
 
 			strcpy(parametro_aux, instrucciones[j]);
+			free(instrucciones[j]);
 			list_add(instruccion_aux->parametros, parametro_aux);
 
 			j++;
 		}
 
 		list_add(lista_instrucciones, instruccion_aux);
-
+		free(instrucciones);
 		i++;
 		j = 1;
 	}
@@ -89,7 +95,6 @@ int main (int argc, char** argv) {
 
 	free(archivo_string);
 	free(archivo_dividido);
-	free(instrucciones);
 	list_destroy_and_destroy_elements(lista_instrucciones, instruccion_destroyer);
 
 	return 0;
