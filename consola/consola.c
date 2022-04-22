@@ -1,6 +1,7 @@
 #include <stdio.h>
 #include <stdlib.h>
 #include <stdint.h>
+#include "utils.h"
 #include <string.h>
 #include <commons/string.h>
 #include <commons/collections/list.h>
@@ -30,12 +31,12 @@ typedef struct {
 typedef struct {
     uint32_t size; // Tamaño del payload
     void* stream; // Payload
-} t_buffer;
+} t_buffer_instrucciones;
 
 typedef struct {
     uint32_t codigo_operacion_de_paquete;
-    t_buffer* buffer;
-} t_paquete;
+    t_buffer_instrucciones* buffer;
+} t_paquete_instrucciones;
 
 //declaracion de funciones
 void imprimir_parametros(void *param);
@@ -44,15 +45,15 @@ void instruccion_destroyer(void* elem);
 long int tamanio_del_archivo(FILE *);
 void agregar_instrucciones(t_list * , char** );
 uint32_t convertir_instruccion(char*);
-uint32_t serializar_instruccion(t_buffer*, instruccion*, uint32_t);
-void * serializar_instrucciones(t_list *);
+uint32_t serializar_instruccion(t_buffer_instrucciones*, instruccion*, uint32_t);
+void * serializar_instrucciones(t_list *, int);
 
 
 
 
 int main (int argc, char** argv) {
+	int conexion = crear_conexion("127.0.0.1", "4444");
 	if (argc != 3) return ERROR_ARGUMENTOS; 											//ERROR: cant. errónea de argumentos
-
 	char* path = argv[1];
 	int tamanio = atoi(argv[2]);
 
@@ -75,7 +76,8 @@ int main (int argc, char** argv) {
 	agregar_instrucciones(lista_instrucciones, archivo_dividido);						//función para ir agregando cosas a la lista de structs seguido de la liberación del archivo dividido
 	free(archivo_dividido);
 
-	serializar_instrucciones(lista_instrucciones, socket)
+
+	serializar_instrucciones(lista_instrucciones, conexion);
 	 
 	list_iterate(lista_instrucciones, imprimir_lista);									//recorro la lista acá deberíamos seguir con las consignas
 	list_destroy_and_destroy_elements(lista_instrucciones, instruccion_destroyer);
@@ -101,6 +103,7 @@ uint32_t convertir_instruccion(char* str){
 		return COPY;
 	if(!strcmp(str, "EXIT"))
 		return EXIT;
+	return 100;
 }
 
 uint32_t agregar_una_instruccion(t_list * lista_ins, void * param, uint32_t flag){
@@ -115,7 +118,6 @@ uint32_t agregar_una_instruccion(t_list * lista_ins, void * param, uint32_t flag
 	//instruccion_aux->cod_op = malloc(strlen(instrucciones[0])+1);
 	//instruccion_aux->cod_op = instrucciones[0];
 	
-	instruccion_aux -> cod_op = malloc(uint32_t);
 	instruccion_aux -> cod_op = convertir_instruccion(instrucciones[0]);
 
 //strcpy(instruccion_aux->identificador, instrucciones[0]);
@@ -188,11 +190,11 @@ void instruccion_destroyer(void* elem){
 	free(una_instruccion);
 }
 
-uint32_t serializar_instruccion(t_buffer* buffer, instruccion* instruccion, uint32_t offset){
+uint32_t serializar_instruccion(t_buffer_instrucciones* buffer, instruccion* instruccion, uint32_t offset){
 	buffer->size += sizeof(uint32_t) * 2 // Código de operación y tamaño de parámetros
              + instruccion->tam_param; // Parámetros
 
-	void* stream = realloc((buffer->size), offset);
+	void* stream = (void *)realloc(buffer, offset);
 
 	memcpy(stream + offset, &instruccion->cod_op, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
@@ -211,19 +213,20 @@ uint32_t serializar_instruccion(t_buffer* buffer, instruccion* instruccion, uint
 }
 
 
-void* serializar_instrucciones(t_list * lista_instrucciones, algo socket){
-	t_buffer* buffer = malloc(sizeof(t_buffer));
+void* serializar_instrucciones(t_list * lista_instrucciones, int socket){
+	t_buffer_instrucciones* buffer = malloc(sizeof(t_buffer_instrucciones));
 	buffer->size = 0;
 	buffer->stream = NULL;
 	uint32_t offset = 0;
 
-	void _f_aux(instruccion* instruccion){
-		offset = serializar_instruccion(buffer, instruccion, offset);
+	void _f_aux(void* instruccion_recibida){
+		instruccion * ins = (instruccion *) instruccion_recibida;
+		offset = serializar_instruccion(buffer, ins, offset);
 	}
 
 	list_iterate(lista_instrucciones, _f_aux);
 	
-	t_paquete* paquete = malloc(sizeof(t_paquete));
+	t_paquete_instrucciones* paquete = malloc(sizeof(t_paquete_instrucciones));
 	paquete->codigo_operacion_de_paquete = OPERACION_ENVIO_INSTRUCCIONES;
 
 	//                        lista  codigo_operacion_de_paquete   tamaño_lista
