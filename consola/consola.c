@@ -10,8 +10,10 @@
 #define ERROR_ARCHIVO 2
 
 typedef struct INSTRUCCION{
+	uint32_t tam_id;
 	char* identificador;
-	t_list *parametros;
+	uint32_t tam_param;
+	uint32_t *parametros;
 }instruccion;
 
 
@@ -71,15 +73,15 @@ void agregar_una_instruccion(t_list * lista_ins, void * param){
 	instruccion_aux->identificador = malloc(strlen(instrucciones[0])+1);
 	strcpy(instruccion_aux->identificador, instrucciones[0]);
 	free(instrucciones[0]);
-
-	instruccion_aux->parametros = list_create();
+	instruccion_aux->parametros = NULL;
+	instruccion_aux->tam_param =0;
 	int j = 1;
 	while(instrucciones[j]) {
-		void *parametro_aux = malloc(strlen(instrucciones[j])+1);
-
-		strcpy(parametro_aux, instrucciones[j]);
+		uint32_t numero = (uint32_t)atoi(instrucciones[j]);
+		instruccion_aux->tam_param += sizeof(uint32_t);
+		instruccion_aux->parametros = (uint32_t *)realloc(instruccion_aux->parametros, j*sizeof(uint32_t));
+		instruccion_aux->parametros[j-1] = numero;
 		free(instrucciones[j]);
-		list_add(instruccion_aux->parametros, parametro_aux);
 
 		j++;
 	}
@@ -111,12 +113,17 @@ void imprimir_lista(void * var){
 	instruccion *alo = (instruccion *) var;
 
 	printf("%s\n", alo->identificador);
-	list_iterate(alo->parametros, imprimir_parametros);
+	int i = 0;
+	int cant = alo->tam_param/sizeof(uint32_t);
+	while(i<cant){
+		printf("num: %d", alo->parametros[i]);
+		i++;
+	}
 }
 
 void instruccion_destroyer(void* elem){
 	instruccion* una_instruccion = (instruccion*) elem;
 	free(una_instruccion->identificador);
-	list_destroy_and_destroy_elements(una_instruccion->parametros, free);
+	free(una_instruccion->parametros);
 	free(una_instruccion);
 }
