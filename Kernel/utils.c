@@ -40,7 +40,7 @@ int esperar_cliente(int socket_servidor)
 	if(handshake ==1)
 		send(socket_cliente, &resultOk, sizeof(uint32_t), NULL);
 	else
-		send(socket_cliente, &resultError, sizeof(uint32_t), NULL);
+		send(socket_cliente, &resultError, sizeof(uint32_t), NULL); // cambiar NULL por 0
 	log_info(logger, "Se conecto un cliente!");
 
 	return socket_cliente;

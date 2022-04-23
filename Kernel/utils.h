@@ -12,7 +12,7 @@
 #include<assert.h>
 
 #define IP "127.0.0.1"
-#define PUERTO "4444"
+#define PUERTO "8000"
 typedef struct {
 	uint32_t cod_op;
 	uint32_t tam_param;

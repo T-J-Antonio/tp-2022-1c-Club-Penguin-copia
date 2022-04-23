@@ -4,6 +4,7 @@
 #include "utils.h"
 #include <string.h>
 #include <commons/string.h>
+#include <commons/config.h>
 #include <commons/collections/list.h>
 
 #define EXITO 0
@@ -44,19 +45,18 @@ long int tamanio_del_archivo(FILE *);
 void agregar_instrucciones(t_list * , char** );
 uint32_t convertir_instruccion(char*);
 uint32_t serializar_instruccion(t_buffer_instrucciones*, instruccion*, uint32_t);
-void * serializar_instrucciones(t_list *, int);
+t_buffer_instrucciones * serializar_instrucciones(t_list *);
+void empaquetar_y_enviar(t_buffer_instrucciones*, int, int );
 
 
 
 
 int main (int argc, char** argv) {
-	int conexion = crear_conexion("127.0.0.1", "4444");
 	if (argc != 3) return ERROR_ARGUMENTOS; 											//ERROR: cant. errónea de argumentos
 	char* path = argv[1];
-	int tamanio = atoi(argv[2]);
+	int tamanio = atoi(argv[2]);														// Pasar tam proceso al kernel
 
 	t_list * lista_instrucciones = list_create();										//creo la lista que va a contener todos los struct instruccion
-
 
 	FILE* archivo_instrucciones = fopen(path, "rt"); 									//abro el archivo entero
 	if (!archivo_instrucciones) return ERROR_ARCHIVO; 									//ERROR: el archivo no pudo abrirse
@@ -75,11 +75,21 @@ int main (int argc, char** argv) {
 	free(archivo_dividido);
 
 
-	serializar_instrucciones(lista_instrucciones, conexion);
+	t_buffer_instrucciones* buffer = serializar_instrucciones(lista_instrucciones);
+	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/consola/consola.config");
+	char* ip = config_get_string_value(config, "KERNEL_IP");
+	printf("ip: %s\n", ip);
+	char* port = config_get_string_value(config, "KERNEL_PORT");
+	printf("port: %s\n", port);
+
+
+	int conexion = crear_conexion(ip, port);
+	empaquetar_y_enviar(buffer, conexion, OPERACION_ENVIO_INSTRUCCIONES);
 	 
 	list_destroy_and_destroy_elements(lista_instrucciones, instruccion_destroyer);
 	liberar_conexion(conexion);
 
+	config_destroy(config);
 	return EXITO;
 }
 
@@ -182,8 +192,7 @@ uint32_t serializar_instruccion(t_buffer_instrucciones* buffer, instruccion* ins
 	return offset;
 }
 
-
-void* serializar_instrucciones(t_list * lista_instrucciones, int socket){
+t_buffer_instrucciones* serializar_instrucciones(t_list * lista_instrucciones){
 	t_buffer_instrucciones* buffer = malloc(sizeof(t_buffer_instrucciones));
 	buffer->size = 0;
 	buffer->stream = NULL;
@@ -195,14 +204,18 @@ void* serializar_instrucciones(t_list * lista_instrucciones, int socket){
 	}
 
 	list_iterate(lista_instrucciones, _f_aux);
-//------------------------------------------------------------------------------------------------------------
+	return buffer;
+
+}
+
+void empaquetar_y_enviar(t_buffer_instrucciones* buffer, int socket, int codigo_operacion){
 	t_paquete_instrucciones* paquete = malloc(sizeof(t_paquete_instrucciones));
-	paquete->codigo_operacion_de_paquete = OPERACION_ENVIO_INSTRUCCIONES;
+	paquete->codigo_operacion_de_paquete = codigo_operacion;
 	paquete->buffer = buffer;
 
 	//  					 lista  codigo_operacion_de_paquete   tamaño_lista
 	void* a_enviar = malloc(buffer->size + sizeof(uint32_t) + sizeof(uint32_t));
-	offset = 0;
+	uint32_t offset = 0;
 
 	memcpy(a_enviar + offset, &(paquete->codigo_operacion_de_paquete), sizeof(int));
 	offset += sizeof(int);
@@ -218,7 +231,4 @@ void* serializar_instrucciones(t_list * lista_instrucciones, int socket){
 	free(paquete->buffer->stream);
 	free(paquete->buffer);
 	free(paquete);
-
-	
-	return buffer;
 }
