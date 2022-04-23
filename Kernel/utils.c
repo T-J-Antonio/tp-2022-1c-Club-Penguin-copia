@@ -98,3 +98,54 @@ t_list* recibir_paquete(int socket_cliente)
 	free(buffer);
 	return valores;
 }
+t_list* recibir_instrucciones(int socket_cliente){
+	int size;
+	int desplazamiento = 0;
+	void * buffer;
+	t_list* instrucciones = list_create();
+
+	buffer = recibir_buffer(&size, socket_cliente);
+	while(desplazamiento < size){
+		instruccion *recibida = malloc(sizeof(instruccion));
+		recibida->parametros = NULL;
+		memcpy(&recibida->cod_op, buffer + desplazamiento, sizeof(int));
+		desplazamiento+=sizeof(int);
+		memcpy(&recibida->tam_param, buffer + desplazamiento, sizeof(int));
+		desplazamiento+=sizeof(int);
+
+
+		//lista de parametros
+		if(recibida->tam_param){
+			recibida->parametros = malloc(recibida->tam_param);
+			memcpy(recibida->parametros, buffer+desplazamiento, recibida->tam_param);
+			desplazamiento+=recibida->tam_param;
+		}
+
+
+		list_add(instrucciones, recibida);
+	}
+	free(buffer);
+	return instrucciones;
+}
+
+
+
+
+
+void imprimir_parametros(void *param){
+	uint32_t numero = (uint32_t)atoi(param);
+	printf("cod_op: %d\n", numero);
+}
+
+void imprimir_lista(void * var){
+	instruccion *alo = (instruccion *) var;
+
+	printf("%d\n", alo->cod_op);
+	uint32_t i = 0;
+	uint32_t cant = alo->tam_param/sizeof(uint32_t);
+
+	while(i<cant){
+		printf("num: %d\n", alo->parametros[i]);
+		i++;
+	}
+}

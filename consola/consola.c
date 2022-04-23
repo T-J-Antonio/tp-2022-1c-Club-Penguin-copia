@@ -34,13 +34,11 @@ typedef struct {
 } t_buffer_instrucciones;
 
 typedef struct {
-    uint32_t codigo_operacion_de_paquete;
+    int codigo_operacion_de_paquete;
     t_buffer_instrucciones* buffer;
 } t_paquete_instrucciones;
 
 //declaracion de funciones
-void imprimir_parametros(void *param);
-void imprimir_lista(void * var);
 void instruccion_destroyer(void* elem);
 long int tamanio_del_archivo(FILE *);
 void agregar_instrucciones(t_list * , char** );
@@ -80,6 +78,7 @@ int main (int argc, char** argv) {
 	serializar_instrucciones(lista_instrucciones, conexion);
 	 
 	list_destroy_and_destroy_elements(lista_instrucciones, instruccion_destroyer);
+	liberar_conexion(conexion);
 
 	return EXITO;
 }
@@ -114,8 +113,6 @@ uint32_t agregar_una_instruccion(t_list * lista_ins, void * param, uint32_t flag
 	char **instrucciones = string_split(inst, " ");
 	free(param);
 	
-// aca se agrega el string, habria que cambiar a enum
-	
 	instruccion_aux->cod_op = convertir_instruccion(instrucciones[0]);
 	
 	if(instruccion_aux->cod_op == NO_OP && !flag){
@@ -123,8 +120,6 @@ uint32_t agregar_una_instruccion(t_list * lista_ins, void * param, uint32_t flag
 		free(instrucciones[1]);
 		return numero_de_veces;
 	}
-	
-	//esto no cambia
 	
 	free(instrucciones[0]);
 
@@ -163,23 +158,6 @@ long int tamanio_del_archivo(FILE * archivo){
 	return tamanio_archivo;
 }
 
-void imprimir_parametros(void *param){
-	uint32_t numero = (uint32_t)atoi(param);
-	printf("%d", numero);
-}
-
-void imprimir_lista(void * var){
-	instruccion *alo = (instruccion *) var;
-
-	printf("%d\n", alo->cod_op);
-	int i = 0;
-	int cant = alo->tam_param/sizeof(uint32_t);
-	while(i<cant){
-		printf("num: %d", alo->parametros[i]);
-		i++;
-	}
-}
-
 void instruccion_destroyer(void* elem){
 	instruccion* una_instruccion = (instruccion*) elem;
 	free(una_instruccion->parametros);
@@ -189,8 +167,7 @@ void instruccion_destroyer(void* elem){
 uint32_t serializar_instruccion(t_buffer_instrucciones* buffer, instruccion* instruccion, uint32_t offset){
 	buffer->size += sizeof(uint32_t) * 2 + instruccion->tam_param; // Parámetros
 	int cant = instruccion->tam_param/sizeof(uint32_t);
-
-	buffer->stream = (void *)realloc(buffer->stream, offset + (2*sizeof(uint32_t)) + cant );
+	buffer->stream = (void *)realloc(buffer->stream, offset + (sizeof(uint32_t)*2) + instruccion->tam_param );
 
 	memcpy(buffer->stream + offset, &instruccion->cod_op, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
@@ -201,7 +178,6 @@ uint32_t serializar_instruccion(t_buffer_instrucciones* buffer, instruccion* ins
 		memcpy(buffer->stream + offset, &instruccion->parametros[i], sizeof(uint32_t));
 		offset += sizeof(uint32_t);
 	}
-	
 
 	return offset;
 }
@@ -219,27 +195,23 @@ void* serializar_instrucciones(t_list * lista_instrucciones, int socket){
 	}
 
 	list_iterate(lista_instrucciones, _f_aux);
-	
-
-
-
-
-
+//------------------------------------------------------------------------------------------------------------
 	t_paquete_instrucciones* paquete = malloc(sizeof(t_paquete_instrucciones));
 	paquete->codigo_operacion_de_paquete = OPERACION_ENVIO_INSTRUCCIONES;
 	paquete->buffer = buffer;
 
-	//                        lista  codigo_operacion_de_paquete   tamaño_lista
+	//  					 lista  codigo_operacion_de_paquete   tamaño_lista
 	void* a_enviar = malloc(buffer->size + sizeof(uint32_t) + sizeof(uint32_t));
 	offset = 0;
 
-	memcpy(a_enviar + offset, &(paquete->codigo_operacion_de_paquete), sizeof(uint32_t));
-	offset += sizeof(uint32_t);
+	memcpy(a_enviar + offset, &(paquete->codigo_operacion_de_paquete), sizeof(int));
+	offset += sizeof(int);
 	memcpy(a_enviar + offset, &(paquete->buffer->size), sizeof(uint32_t));
 	offset += sizeof(uint32_t);
 	memcpy(a_enviar + offset, paquete->buffer->stream, paquete->buffer->size);
 	
 	send(socket, a_enviar, buffer->size + sizeof(uint32_t) + sizeof(uint32_t), 0);
+
 
 	// No nos olvidamos de liberar la memoria que ya no usaremos
 	free(a_enviar);
