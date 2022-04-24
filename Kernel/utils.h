@@ -13,17 +13,14 @@
 
 #define IP "127.0.0.1"
 #define PUERTO "8000"
+
+#define OPERACION_ENVIO_INSTRUCCIONES 0
+
 typedef struct {
 	uint32_t cod_op;
 	uint32_t tam_param;
 	uint32_t *parametros;
 } instruccion;
-typedef enum
-{
-	OPERACION_ENVIO_INSTRUCCIONES,
-	MENSAJE,
-	PAQUETE
-}op_code;
 
 t_log* logger;
 

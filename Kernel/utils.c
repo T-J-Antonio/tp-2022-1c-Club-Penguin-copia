@@ -38,9 +38,9 @@ int esperar_cliente(int socket_servidor)
 
 	recv(socket_cliente, &handshake, sizeof(uint32_t), MSG_WAITALL);
 	if(handshake ==1)
-		send(socket_cliente, &resultOk, sizeof(uint32_t), NULL);
+		send(socket_cliente, &resultOk, sizeof(uint32_t), 0);
 	else
-		send(socket_cliente, &resultError, sizeof(uint32_t), NULL); // cambiar NULL por 0
+		send(socket_cliente, &resultError, sizeof(uint32_t), 0); // cambiar NULL por 0
 	log_info(logger, "Se conecto un cliente!");
 
 	return socket_cliente;
@@ -69,56 +69,27 @@ void* recibir_buffer(int* size, int socket_cliente)
 	return buffer;
 }
 
-void recibir_mensaje(int socket_cliente)
-{
-	int size;
-	char* buffer = recibir_buffer(&size, socket_cliente);
-	log_info(logger, "Me llego el mensaje %s", buffer);
-	free(buffer);
-}
-
-t_list* recibir_paquete(int socket_cliente)
-{
-	int size;
-	int desplazamiento = 0;
-	void * buffer;
-	t_list* valores = list_create();
-	int tamanio;
-
-	buffer = recibir_buffer(&size, socket_cliente);
-	while(desplazamiento < size)
-	{
-		memcpy(&tamanio, buffer + desplazamiento, sizeof(int));
-		desplazamiento+=sizeof(int);
-		char* valor = malloc(tamanio);
-		memcpy(valor, buffer+desplazamiento, tamanio);
-		desplazamiento+=tamanio;
-		list_add(valores, valor);
-	}
-	free(buffer);
-	return valores;
-}
 t_list* recibir_instrucciones(int socket_cliente){
 	int size;
-	int desplazamiento = 0;
+	uint32_t offset = 0;
 	void * buffer;
 	t_list* instrucciones = list_create();
 
 	buffer = recibir_buffer(&size, socket_cliente);
-	while(desplazamiento < size){
+	while(offset < size){
 		instruccion *recibida = malloc(sizeof(instruccion));
 		recibida->parametros = NULL;
-		memcpy(&recibida->cod_op, buffer + desplazamiento, sizeof(int));
-		desplazamiento+=sizeof(int);
-		memcpy(&recibida->tam_param, buffer + desplazamiento, sizeof(int));
-		desplazamiento+=sizeof(int);
+		memcpy(&recibida->cod_op, buffer + offset, sizeof(uint32_t));
+		offset+=sizeof(uint32_t);
+		memcpy(&recibida->tam_param, buffer + offset, sizeof(uint32_t));
+		offset+=sizeof(uint32_t);
 
 
 		//lista de parametros
 		if(recibida->tam_param){
 			recibida->parametros = malloc(recibida->tam_param);
-			memcpy(recibida->parametros, buffer+desplazamiento, recibida->tam_param);
-			desplazamiento+=recibida->tam_param;
+			memcpy(recibida->parametros, buffer+offset, recibida->tam_param);
+			offset+=recibida->tam_param;
 		}
 
 

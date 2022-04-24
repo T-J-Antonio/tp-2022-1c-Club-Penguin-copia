@@ -1,54 +1,4 @@
-#include <stdio.h>
-#include <stdlib.h>
-#include <stdint.h>
-#include "utils.h"
-#include <string.h>
-#include <commons/string.h>
-#include <commons/config.h>
-#include <commons/collections/list.h>
-
-#define EXITO 0
-#define ERROR_ARGUMENTOS 1
-#define ERROR_ARCHIVO 2
-
-#define OPERACION_ENVIO_INSTRUCCIONES 0
-
-enum operaciones
-{
-	NO_OP = 0,
-	I_O = 1,
-	READ = 2,
-	WRITE = 3,
-	COPY = 4,
-	EXIT = 5
-};
-
-typedef struct {
-	uint32_t cod_op;
-	uint32_t tam_param;
-	uint32_t *parametros;
-} instruccion;
-
-typedef struct {
-    uint32_t size; // Tamaño del payload
-    void* stream; // Payload
-} t_buffer_instrucciones;
-
-typedef struct {
-    int codigo_operacion_de_paquete;
-    t_buffer_instrucciones* buffer;
-} t_paquete_instrucciones;
-
-//declaracion de funciones
-void instruccion_destroyer(void* elem);
-long int tamanio_del_archivo(FILE *);
-void agregar_instrucciones(t_list * , char** );
-uint32_t convertir_instruccion(char*);
-uint32_t serializar_instruccion(t_buffer_instrucciones*, instruccion*, uint32_t);
-t_buffer_instrucciones * serializar_instrucciones(t_list *);
-void empaquetar_y_enviar(t_buffer_instrucciones*, int, int );
-
-
+#include "consola.h"
 
 
 int main (int argc, char** argv) {
@@ -66,7 +16,7 @@ int main (int argc, char** argv) {
 	fread(archivo_string, tamanio_archivo, 1, archivo_instrucciones); 					//leo
 	if(archivo_string == NULL) return ERROR_ARCHIVO;
 	fclose(archivo_instrucciones);														//cierro
-	archivo_string[tamanio_archivo] = '\0';												// arreglo de un posible catastrofe
+	archivo_string[tamanio_archivo] = '\0';												//arreglo de una posible catastrofe
 
 	char** archivo_dividido = string_split(archivo_string, "\n");						//separo lo leído por línea ya que cada línea es una instrucción y prosigo a liberar la memoria de lo leído
 	free(archivo_string);
@@ -75,7 +25,7 @@ int main (int argc, char** argv) {
 	free(archivo_dividido);
 
 
-	t_buffer_instrucciones* buffer = serializar_instrucciones(lista_instrucciones);
+	t_buffer* buffer = serializar_instrucciones(lista_instrucciones);
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/consola/consola.config");
 	char* ip = config_get_string_value(config, "KERNEL_IP");
 	printf("ip: %s\n", ip);
@@ -85,7 +35,7 @@ int main (int argc, char** argv) {
 
 	int conexion = crear_conexion(ip, port);
 	empaquetar_y_enviar(buffer, conexion, OPERACION_ENVIO_INSTRUCCIONES);
-	 
+
 	list_destroy_and_destroy_elements(lista_instrucciones, instruccion_destroyer);
 	liberar_conexion(conexion);
 
@@ -96,7 +46,7 @@ int main (int argc, char** argv) {
 
 
 
-//definición de funciones
+//definición de funciones ¿pasar al header?
 
 uint32_t convertir_instruccion(char* str){
 	if(!strcmp(str, "NO_OP"))
@@ -111,7 +61,7 @@ uint32_t convertir_instruccion(char* str){
 		return COPY;
 	if(!strcmp(str, "EXIT"))
 		return EXIT;
-	return 100;
+	return ERROR_OP_DESCONOCIDA;
 }
 
 uint32_t agregar_una_instruccion(t_list * lista_ins, void * param, uint32_t flag){
@@ -122,15 +72,15 @@ uint32_t agregar_una_instruccion(t_list * lista_ins, void * param, uint32_t flag
 	instruccion_aux->parametros = NULL;
 	char **instrucciones = string_split(inst, " ");
 	free(param);
-	
+
 	instruccion_aux->cod_op = convertir_instruccion(instrucciones[0]);
-	
+
 	if(instruccion_aux->cod_op == NO_OP && !flag){
 		uint32_t numero_de_veces = (uint32_t)atoi(instrucciones[1]);
 		free(instrucciones[1]);
 		return numero_de_veces;
 	}
-	
+
 	free(instrucciones[0]);
 
 
@@ -174,10 +124,10 @@ void instruccion_destroyer(void* elem){
 	free(una_instruccion);
 }
 
-uint32_t serializar_instruccion(t_buffer_instrucciones* buffer, instruccion* instruccion, uint32_t offset){
+uint32_t serializar_instruccion(t_buffer* buffer, instruccion* instruccion, uint32_t offset){
 	buffer->size += sizeof(uint32_t) * 2 + instruccion->tam_param; // Parámetros
 	int cant = instruccion->tam_param/sizeof(uint32_t);
-	buffer->stream = (void *)realloc(buffer->stream, offset + (sizeof(uint32_t)*2) + instruccion->tam_param );
+	buffer->stream = (void *)realloc(buffer->stream, offset + (sizeof(uint32_t)*2) + instruccion->tam_param);
 
 	memcpy(buffer->stream + offset, &instruccion->cod_op, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
@@ -192,8 +142,8 @@ uint32_t serializar_instruccion(t_buffer_instrucciones* buffer, instruccion* ins
 	return offset;
 }
 
-t_buffer_instrucciones* serializar_instrucciones(t_list * lista_instrucciones){
-	t_buffer_instrucciones* buffer = malloc(sizeof(t_buffer_instrucciones));
+t_buffer* serializar_instrucciones(t_list * lista_instrucciones){
+	t_buffer* buffer = malloc(sizeof(t_buffer));
 	buffer->size = 0;
 	buffer->stream = NULL;
 	uint32_t offset = 0;
@@ -208,8 +158,8 @@ t_buffer_instrucciones* serializar_instrucciones(t_list * lista_instrucciones){
 
 }
 
-void empaquetar_y_enviar(t_buffer_instrucciones* buffer, int socket, int codigo_operacion){
-	t_paquete_instrucciones* paquete = malloc(sizeof(t_paquete_instrucciones));
+void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion){
+	t_paquete* paquete = malloc(sizeof(t_paquete));
 	paquete->codigo_operacion_de_paquete = codigo_operacion;
 	paquete->buffer = buffer;
 
@@ -222,13 +172,11 @@ void empaquetar_y_enviar(t_buffer_instrucciones* buffer, int socket, int codigo_
 	memcpy(a_enviar + offset, &(paquete->buffer->size), sizeof(uint32_t));
 	offset += sizeof(uint32_t);
 	memcpy(a_enviar + offset, paquete->buffer->stream, paquete->buffer->size);
-	
+
 	send(socket, a_enviar, buffer->size + sizeof(uint32_t) + sizeof(uint32_t), 0);
 
 
 	// No nos olvidamos de liberar la memoria que ya no usaremos
 	free(a_enviar);
-	free(paquete->buffer->stream);
-	free(paquete->buffer);
-	free(paquete);
+	eliminar_paquete(paquete);
 }

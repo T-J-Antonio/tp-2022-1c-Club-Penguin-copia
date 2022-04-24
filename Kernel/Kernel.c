@@ -16,20 +16,11 @@ int main(void) {
 			lista_ins = recibir_instrucciones(cliente_fd);
 			list_iterate(lista_ins, imprimir_lista);
 			break;
-		case MENSAJE:
-			recibir_mensaje(cliente_fd);
-			break;
-		case PAQUETE:
-			lista = recibir_paquete(cliente_fd);
-			log_info(logger, "Me llegaron los siguientes valores:\n");
-
-			list_iterate(lista, (void*) iterator);
-			break;
 		case -1:
 			log_error(logger, "el cliente se desconecto. Terminando servidor");
 			return EXIT_FAILURE;
 		default:
-			log_warning(logger,"Operacion desconocida. No quieras meter la pataa");
+			log_warning(logger,"Operacion desconocida. No quieras meter la pata");
 			break;
 		}
 	}
