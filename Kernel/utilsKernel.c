@@ -1,6 +1,5 @@
 #include "utilsKernel.h"
 
-t_log* logger;
 
 int iniciar_servidor(void)
 {

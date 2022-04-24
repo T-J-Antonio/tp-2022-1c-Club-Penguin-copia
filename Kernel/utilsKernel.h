@@ -13,6 +13,8 @@
 
 #define OPERACION_ENVIO_INSTRUCCIONES 0
 
+t_log* logger;
+
 typedef struct
 {
 	uint32_t cod_op;

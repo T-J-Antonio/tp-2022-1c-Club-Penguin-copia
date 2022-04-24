@@ -80,3 +80,7 @@
 [INFO] 12:03:19:535 Servidor/(6420:6420): Se conecto un cliente!
 [ERROR] 12:03:19:571 Servidor/(6420:6420): el cliente se desconecto. Terminando servidor
 [INFO] 09:39:45:941 Servidor/(4221:4221): Servidor listo para recibir al cliente
+[INFO] 13:14:11:828 Servidor/(7416:7416): Servidor listo para recibir al cliente
+[INFO] 13:15:19:978 Servidor/(7537:7537): Servidor listo para recibir al cliente
+[INFO] 13:15:49:003 Servidor/(7416:7416): Se conecto un cliente!
+[ERROR] 13:15:49:004 Servidor/(7416:7416): el cliente se desconecto. Terminando servidor
