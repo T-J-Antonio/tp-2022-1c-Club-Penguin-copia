@@ -5,6 +5,7 @@ int main (int argc, char** argv) {
 	if (argc != 3) return ERROR_ARGUMENTOS; 											//ERROR: cant. errónea de argumentos
 	char* path = argv[1];
 	int tamanio = atoi(argv[2]);														// Pasar tam proceso al kernel
+	uint32_t resultado;
 
 	t_list * lista_instrucciones = list_create();										//creo la lista que va a contener todos los struct instruccion
 
@@ -36,6 +37,7 @@ int main (int argc, char** argv) {
 	empaquetar_y_enviar(buffer, conexion, OPERACION_ENVIO_INSTRUCCIONES);
 
 	list_destroy_and_destroy_elements(lista_instrucciones, instruccion_destroyer);
+	recv(conexion, &resultado, sizeof(uint32_t), MSG_WAITALL);
 	liberar_conexion(conexion);
 
 	config_destroy(config);

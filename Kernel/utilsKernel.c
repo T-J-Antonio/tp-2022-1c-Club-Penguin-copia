@@ -100,20 +100,15 @@ t_list* recibir_instrucciones(int socket_cliente){
 	return instrucciones;
 }
 
-void imprimir_parametros(void *param){
-	uint32_t numero = (uint32_t)atoi(param);
-	printf("cod_op: %d\n", numero);
-}
-
 void imprimir_instruccion(void * var){
 	instruccion *alo = (instruccion *) var;
 
-	printf("%d\n", alo->cod_op);
+	printf("codigo de operacion: %d\n", alo->cod_op);
 	uint32_t i = 0;
 	uint32_t cant = alo->tam_param/sizeof(uint32_t);
 
 	while(i<cant){
-		printf("num: %d\n", alo->parametros[i]);
+		printf("parametro: %d\n", alo->parametros[i]);
 		i++;
 	}
 }

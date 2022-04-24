@@ -21,7 +21,7 @@ int crear_conexion(char *ip, char* puerto) {
 	// Ahora que tenemos el socket, vamos a conectarlo
 	connect(socket_cliente, server_info->ai_addr, server_info->ai_addrlen);
 
-	send(socket_cliente, &handshake, sizeof(uint32_t), NULL);
+	send(socket_cliente, &handshake, sizeof(uint32_t), 0);
 	recv(socket_cliente, &result, sizeof(uint32_t), MSG_WAITALL);
 	if(!result)
 		puts("conexion exitosa");
@@ -65,17 +65,20 @@ uint32_t agregar_una_instruccion(t_list * lista_ins, void * param, uint32_t flag
 	instruccion_aux->cod_op = 0;
 	instruccion_aux->parametros = NULL;
 	char **instrucciones = string_split(inst, " ");
-	free(param);
+
 
 	instruccion_aux->cod_op = convertir_instruccion(instrucciones[0]);
+	free(instrucciones[0]);
 
 	if(instruccion_aux->cod_op == NO_OP && !flag){
 		uint32_t numero_de_veces = (uint32_t)atoi(instrucciones[1]);
 		free(instrucciones[1]);
+		free(instruccion_aux);
+		free(instrucciones);
 		return numero_de_veces;
 	}
 
-	free(instrucciones[0]);
+				//ver si hace falta pasar los parametros en caso de noop
 
 
 	int j = 1;
@@ -88,7 +91,6 @@ uint32_t agregar_una_instruccion(t_list * lista_ins, void * param, uint32_t flag
 
 		j++;
 	}
-
 	list_add(lista_ins, instruccion_aux);
 	free(instrucciones);
 	return 0;
@@ -101,6 +103,7 @@ void agregar_instrucciones(t_list * lista_ins, char** instrucciones){
 		for(uint32_t i = 0; i < numero_de_veces; i++){					//Acá entra sólo si es una NO_OP
 			agregar_una_instruccion(lista_ins, elem, 1);
 		}
+		free(elem);
 	}
 	string_iterate_lines(instrucciones, _f_aux);
 }
