@@ -1,4 +1,4 @@
-#include "Kernel.h"
+#include "utilsKernel.h"
 
 int main(void) {
 	logger = log_create("log.log", "Servidor", 1, LOG_LEVEL_DEBUG);
@@ -14,7 +14,7 @@ int main(void) {
 		switch (cod_op) {
 		case OPERACION_ENVIO_INSTRUCCIONES:
 			lista_ins = recibir_instrucciones(cliente_fd);
-			list_iterate(lista_ins, imprimir_lista);
+			list_iterate(lista_ins, imprimir_instruccion);
 			break;
 		case -1:
 			log_error(logger, "el cliente se desconecto. Terminando servidor");
@@ -25,8 +25,4 @@ int main(void) {
 		}
 	}
 	return EXIT_SUCCESS;
-}
-
-void iterator(char* value) {
-	log_info(logger,"%s", value);
 }
