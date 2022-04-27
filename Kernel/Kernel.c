@@ -3,6 +3,7 @@
 uint32_t resultOk = 0;
 
 void* recibiendo(void* input){
+
 	int* cliente_fd = (int *) input;
 	t_list* lista_ins;
 	uint32_t tamanio_en_memoria =0;
@@ -15,17 +16,14 @@ void* recibiendo(void* input){
 			list_iterate(lista_ins, imprimir_instruccion);
 			send(*cliente_fd, &resultOk, sizeof(uint32_t), 0);
 			break;
-		case -1:
-			log_error(logger, "el cliente se desconecto. Terminando servidor");
-			return EXIT_FAILURE;
-		default:
-			log_warning(logger,"Operacion desconocida. No quieras meter la pata");
-			break;
 		}
 	}
-	return 0;
+	return NULL;
 }
-
+void* alo(void* nada){
+	printf("alo\n");
+	return NULL;
+}
 
 int main(void) {
 	logger = log_create("log.log", "Servidor", 1, LOG_LEVEL_DEBUG);
@@ -35,7 +33,10 @@ int main(void) {
 	while(1){
 		pthread_t thread_type;
 		int cliente_fd = esperar_cliente(server_fd);
-		int thread = pthread_create(&thread_type, NULL, recibiendo, (void*) cliente_fd );
+		printf("creo\n");
+		int thread = pthread_create(&thread_type, NULL, recibiendo, (void*) &cliente_fd );
+
+
 	}
 
 
