@@ -4,7 +4,7 @@
 int main (int argc, char** argv) {
 	if (argc != 3) return ERROR_ARGUMENTOS; 											//ERROR: cant. errónea de argumentos
 	char* path = argv[1];
-	uint32_t tamanio_en_memoria = (uint32_t) atoi(argv[2]);														// Pasar tam proceso al kernel
+	uint32_t tamanio_en_memoria = (uint32_t) atoi(argv[2]);								//Pasar tam proceso al kernel
 	uint32_t resultado;
 
 	t_list * lista_instrucciones = list_create();										//creo la lista que va a contener todos los struct instruccion

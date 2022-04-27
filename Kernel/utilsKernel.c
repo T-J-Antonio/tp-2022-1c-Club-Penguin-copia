@@ -115,3 +115,13 @@ void imprimir_instruccion(void * var){
 	}
 }
 
+pcb* crear_header(uint32_t proximo_pid, uint32_t tamanio_en_memoria, t_list* lista_ins, t_config* config){
+	pcb* header = malloc(sizeof(pcb));
+	header->pid = proximo_pid;
+	header->tamanio_en_memoria = tamanio_en_memoria;
+	header->instrucciones = lista_ins;
+	header->program_counter = 0;
+	header->tabla_paginas = NULL;
+	header->estimacion_siguiente = config_get_int_value(config, "ESTIMACION_INICIAL");
+	return header;
+}

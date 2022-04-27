@@ -65,7 +65,6 @@ void eliminar_paquete(t_paquete* paquete);
 uint32_t convertir_instruccion(char*);
 
 //Dada una instrucción en formato string, la traduce a struct instrucción y lo agrega a la lista
-//FALTA PROBAR NO_OP (creo)
 uint32_t agregar_una_instruccion(t_list *, void *, uint32_t);
 
 //Dada la lista de instrucciones en formato string, devuelve la lista de structs instrucción
