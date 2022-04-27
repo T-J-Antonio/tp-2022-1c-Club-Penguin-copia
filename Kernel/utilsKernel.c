@@ -70,13 +70,15 @@ void* recibir_buffer(int* size, int socket_cliente)
 	return buffer;
 }
 
-t_list* recibir_instrucciones(int socket_cliente){
+t_list* recibir_instrucciones(int socket_cliente, uint32_t* tamanio_en_memoria){
 	int size;
 	uint32_t offset = 0;
 	void * buffer;
 	t_list* instrucciones = list_create();
 
 	buffer = recibir_buffer(&size, socket_cliente);
+	memcpy(tamanio_en_memoria, buffer, sizeof(uint32_t));
+	offset+=sizeof(uint32_t);
 	while(offset < size){
 		instruccion *recibida = malloc(sizeof(instruccion));
 		recibida->parametros = NULL;

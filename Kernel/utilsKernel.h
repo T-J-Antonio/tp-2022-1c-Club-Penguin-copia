@@ -8,6 +8,7 @@
 #include<commons/collections/list.h>
 #include<assert.h>
 
+
 #define IP "127.0.0.1"
 #define PUERTO "8000"
 
@@ -32,6 +33,6 @@ int recibir_operacion(int);
 //FUNCIONES PROPIAS
 
 void* recibir_buffer(int*, int);
-t_list* recibir_instrucciones(int);
+t_list* recibir_instrucciones(int, uint32_t*);
 void imprimir_parametros(void *);
 void imprimir_instruccion(void *);

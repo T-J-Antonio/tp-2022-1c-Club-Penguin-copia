@@ -4,7 +4,7 @@
 int main (int argc, char** argv) {
 	if (argc != 3) return ERROR_ARGUMENTOS; 											//ERROR: cant. errónea de argumentos
 	char* path = argv[1];
-	int tamanio = atoi(argv[2]);														// Pasar tam proceso al kernel
+	uint32_t tamanio_en_memoria = (uint32_t) atoi(argv[2]);														// Pasar tam proceso al kernel
 	uint32_t resultado;
 
 	t_list * lista_instrucciones = list_create();										//creo la lista que va a contener todos los struct instruccion
@@ -27,7 +27,7 @@ int main (int argc, char** argv) {
 	free(archivo_dividido);
 
 
-	t_buffer* buffer = serializar_instrucciones(lista_instrucciones);
+	t_buffer* buffer = serializar_instrucciones(lista_instrucciones, tamanio_en_memoria);
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/consola/consola.config");
 	char* ip = config_get_string_value(config, "KERNEL_IP");
 	char* port = config_get_string_value(config, "KERNEL_PORT");

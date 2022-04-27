@@ -81,7 +81,7 @@ void instruccion_destroyer(void* elem);
 uint32_t serializar_instruccion(t_buffer*, instruccion*, uint32_t);
 
 //Dada una lista de instrucciones, construye un buffer con ellas y lo retorna
-t_buffer * serializar_instrucciones(t_list *);
+t_buffer * serializar_instrucciones(t_list *, uint32_t);
 
 //Dado un buffer, un socket y un código de operación, crea un paquete utilizando el buffer,
 //le coloca el código de operación como header, y lo envía a través del socket

@@ -139,11 +139,14 @@ uint32_t serializar_instruccion(t_buffer* buffer, instruccion* instruccion, uint
 	return offset;
 }
 
-t_buffer* serializar_instrucciones(t_list * lista_instrucciones){
+t_buffer* serializar_instrucciones(t_list * lista_instrucciones, uint32_t tamanio_en_memoria){
 	t_buffer* buffer = malloc(sizeof(t_buffer));
-	buffer->size = 0;
-	buffer->stream = NULL;
+	buffer->size = sizeof(uint32_t);
+	buffer->stream = malloc(sizeof(uint32_t));
 	uint32_t offset = 0;
+
+	memcpy(buffer->stream, &tamanio_en_memoria, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
 
 	void _f_aux(void* instruccion_recibida){
 		instruccion * ins = (instruccion *) instruccion_recibida;

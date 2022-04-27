@@ -125,3 +125,30 @@
 [INFO] 20:36:12:952 Servidor/(12602:12602): Servidor listo para recibir al cliente
 [INFO] 20:36:19:825 Servidor/(12602:12602): Se conecto un cliente!
 [ERROR] 20:36:19:872 Servidor/(12602:12602): el cliente se desconecto. Terminando servidor
+[INFO] 20:03:52:785 Servidor/(4744:4744): Servidor listo para recibir al cliente
+[INFO] 20:04:26:483 Servidor/(4744:4744): Se conecto un cliente!
+[ERROR] 20:07:24:787 Servidor/(4744:4744): el cliente se desconecto. Terminando servidor
+[INFO] 20:07:46:871 Servidor/(5014:5014): Servidor listo para recibir al cliente
+[INFO] 20:07:49:845 Servidor/(5014:5014): Se conecto un cliente!
+[ERROR] 20:07:49:893 Servidor/(5014:5014): el cliente se desconecto. Terminando servidor
+[INFO] 20:13:04:924 Servidor/(5145:5145): Servidor listo para recibir al cliente
+[INFO] 20:13:21:484 Servidor/(5145:5145): Se conecto un cliente!
+[ERROR] 20:13:21:522 Servidor/(5145:5145): el cliente se desconecto. Terminando servidor
+[INFO] 20:14:32:670 Servidor/(5214:5214): Servidor listo para recibir al cliente
+[INFO] 20:14:41:413 Servidor/(5214:5214): Se conecto un cliente!
+[ERROR] 20:14:41:441 Servidor/(5214:5214): el cliente se desconecto. Terminando servidor
+[INFO] 20:19:01:667 Servidor/(5408:5408): Servidor listo para recibir al cliente
+[INFO] 20:19:04:427 Servidor/(5408:5408): Se conecto un cliente!
+[INFO] 20:21:08:678 Servidor/(5524:5524): Servidor listo para recibir al cliente
+[INFO] 20:21:16:681 Servidor/(5524:5524): Se conecto un cliente!
+[INFO] 20:22:45:534 Servidor/(5607:5607): Servidor listo para recibir al cliente
+[INFO] 20:22:52:405 Servidor/(5607:5607): Se conecto un cliente!
+[ERROR] 20:22:52:431 Servidor/(5607:5607): el cliente se desconecto. Terminando servidor
+[INFO] 20:23:35:328 Servidor/(5655:5655): Servidor listo para recibir al cliente
+[INFO] 20:23:43:316 Servidor/(5655:5655): Se conecto un cliente!
+[ERROR] 20:23:43:351 Servidor/(5655:5655): el cliente se desconecto. Terminando servidor
+[INFO] 20:27:17:868 Servidor/(5841:5841): Servidor listo para recibir al cliente
+[INFO] 20:27:20:552 Servidor/(5841:5841): Se conecto un cliente!
+[ERROR] 20:27:20:595 Servidor/(5841:5841): el cliente se desconecto. Terminando servidor
+[INFO] 21:09:07:025 Servidor/(7037:7037): Servidor listo para recibir al cliente
+[INFO] 21:09:16:916 Servidor/(7037:7037): Se conecto un cliente!
