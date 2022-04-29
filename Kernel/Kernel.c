@@ -6,6 +6,8 @@ void* escuchar_consola(int);
 
 uint32_t proximo_pid = 0;
 
+// Inicializamos el kernel como servidor, donde cada hilo va a poder realizar una conexion distinta
+
 int main(void) {
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/Kernel/kernel.config");
 	logger = log_create("log.log", "Servidor", 1, LOG_LEVEL_DEBUG);
@@ -20,6 +22,7 @@ int main(void) {
 
 	return EXIT_SUCCESS;
 }
+
 
 void* recibiendo(void* input, t_config* config){
 

@@ -78,7 +78,7 @@ uint32_t agregar_una_instruccion(t_list * lista_ins, void * param, uint32_t flag
 		return numero_de_veces;
 	}
 
-				//ver si hace falta pasar los parametros en caso de noop
+				//ver si hace falta sacar los parametros en caso de noop
 
 
 	int j = 1;
@@ -100,7 +100,7 @@ void agregar_instrucciones(t_list * lista_ins, char** instrucciones){
 	void _f_aux(char *elem ){
 		uint32_t numero_de_veces;
 		numero_de_veces = agregar_una_instruccion(lista_ins, elem, 0);	//DETALLE!! funcion para trabajar ya que las commons toman solo un parametro creo la auxiliar para pasar los dos que necesito a la funcion que realiza la logica
-		for(uint32_t i = 0; i < numero_de_veces; i++){					//Acá entra sólo si es una NO_OP
+		for(uint32_t i = 0; i < numero_de_veces; i++){					//Acá entra sólo si es una NO_OP. Si es NO_OP 5, entrara 5 veces para realizar NO_OP
 			agregar_una_instruccion(lista_ins, elem, 1);
 		}
 		free(elem);
@@ -121,6 +121,9 @@ void instruccion_destroyer(void* elem){
 	free(una_instruccion);
 }
 
+/* Serializa una instruccion, Reasignando el espacio que debera ocupar el stream del buffer, ya que antes
+ Solo tenia el tamanio_en_memoria pero no lo que ocupaban las instrucciones */
+
 uint32_t serializar_instruccion(t_buffer* buffer, instruccion* instruccion, uint32_t offset){
 	buffer->size += sizeof(uint32_t) * 2 + instruccion->tam_param; // Parámetros
 	int cant = instruccion->tam_param/sizeof(uint32_t);
@@ -139,24 +142,31 @@ uint32_t serializar_instruccion(t_buffer* buffer, instruccion* instruccion, uint
 	return offset;
 }
 
+/* En esta funcion, al serializar las instrucciones, se le asigna el espacio que va a tener el tamanio_en_memoria
+El tamanio que va a ocupar la instruccion en si, se lo asigna en la funcion de arriba "serializar_instruccion"
+Entonces, por cada instruccion que serialicemos, nos vamos a correr un poco con el offset y vamos a ir agregandolas en seguidilla, primero con su tamanio y luego la instruccion */
+
 t_buffer* serializar_instrucciones(t_list * lista_instrucciones, uint32_t tamanio_en_memoria){
-	t_buffer* buffer = malloc(sizeof(t_buffer));
-	buffer->size = sizeof(uint32_t);
-	buffer->stream = malloc(sizeof(uint32_t));
+	t_buffer* buffer = malloc(sizeof(t_buffer));								//
+	buffer->size = sizeof(uint32_t);											// ----> Les asignamos a cada variable el espacio de memoria que necesitan
+	buffer->stream = malloc(sizeof(uint32_t));									//
 	uint32_t offset = 0;
 
-	memcpy(buffer->stream, &tamanio_en_memoria, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
+	memcpy(buffer->stream, &tamanio_en_memoria, sizeof(uint32_t));				// Copiamos en stream, lo que se encuentra en tamanio memoria pero solo los primeros 4bytes
+	offset += sizeof(uint32_t);													// Nos desplazamos la cantidad de memoria que asignamos anteriormente, o sea 4 bytes
 
-	void _f_aux(void* instruccion_recibida){
+	void _f_aux(void* instruccion_recibida){									// _f_aux recibe una instruccion de la lista de instrucciones (Mas abajo en el list_iterate) y envia a serializarla. Una vez que lo hace agrega al offset para desplazarse la cantidad de espacio que ocupo esa instruccion.
 		instruccion * ins = (instruccion *) instruccion_recibida;
-		offset = serializar_instruccion(buffer, ins, offset);
+		offset = serializar_instruccion(buffer, ins, offset);					// Se incrementa el offset para que cuando serializar instruccion tome una nueva instruccion, nos desplacemos y no pisemos la instruccion anterior que serializamos
 	}
 
-	list_iterate(lista_instrucciones, _f_aux);
+	list_iterate(lista_instrucciones, _f_aux);									// Cada instruccion en la lista de instrucciones va a realziar la funcion auxiliar
 	return buffer;
 
 }
+
+// Con esta funcion, creamos el paquete que va a enviar el buffer
+// El buffer contiene las instrucciones en seguidilla sin espacios, al contrario que en un struct. ----> Ejemplo de enviar el struct que toma 10 bytes pero solo hay info de 6 bytes
 
 void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion){
 	t_paquete* paquete = malloc(sizeof(t_paquete));

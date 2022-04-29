@@ -21,7 +21,7 @@
 typedef struct
 {
 	uint32_t size;
-	void* stream;
+	void* stream;						//Stream contiene dentro, el tamanio en memoria que va a ocupar el proceso de instrucciones (Que es arbitrario, no sabemos con exactitud cuanto sera), y el stream, o sea, el conjunto de instrucciones.
 } t_buffer;
 
 typedef struct
@@ -73,7 +73,7 @@ void agregar_instrucciones(t_list * , char** );
 //Dado un archivo, devuelve su tamaño
 long int tamanio_del_archivo(FILE *);
 
-//Auxiliar para destruir lista de instrucciones
+//Auxiliar para destruir una instruccion de la lista de instrucciones. Para destruir todas las instrucciones de la lista, se hace un iterate con list_destroy_and_destroy_elements
 void instruccion_destroyer(void* elem);
 
 //Dada una instrucción, la añade al buffer parte por parte y retorna el offset generado por esta adición
