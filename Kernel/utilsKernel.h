@@ -10,11 +10,9 @@
 #include <assert.h>
 #include <pthread.h>
 
-
-#define IP "127.0.0.1"
-#define PUERTO "8000"
-
 #define OPERACION_ENVIO_INSTRUCCIONES 0
+#define OPERACION_ENVIO_PCB 1
+
 
 t_log* logger;
 
@@ -24,28 +22,44 @@ typedef struct
 	uint32_t tam_param;
 	uint32_t *parametros;
 } instruccion;
+typedef struct
+{
+	uint32_t size;
+	void* stream;
+} t_buffer;
 
+typedef struct
+{
+	uint32_t codigo_operacion_de_paquete;
+	t_buffer* buffer;
+} t_paquete;
 typedef struct
 {
 	uint32_t pid;
 	uint32_t tamanio_en_memoria;
-	t_list* instrucciones;
+	uint32_t tamanio_stream_instrucciones;
+	void* instrucciones;
 	uint32_t program_counter;
+	uint32_t tamanio_paginas;
 	void* tabla_paginas; //el tipo de dato se va a definir cuando hagamos la memoria
-	float estimacion_siguiente;
+	float estimacion_siguiente; // pendiente de cambio por temas de serializacion
 } pcb;
 
 
 //FUNCIONES TRAÍDAS DEL TP0
 
-int iniciar_servidor(void);
+int iniciar_servidor(char*, char*);
 int esperar_cliente(int);
 int recibir_operacion(int);
+//Dados IP y puerto del servidor, realiza el handshake con él para establecer la conexión
+int crear_conexion(char* ip, char* puerto);
+
+//Cierra el socket pasado por parámetro
+void liberar_conexion(int socket_cliente);
 
 //FUNCIONES PROPIAS
 
 void* recibir_buffer(int*, int);
-t_list* recibir_instrucciones(int, uint32_t*);
-void imprimir_parametros(void *);
-void imprimir_instruccion(void *);
+void* recibir_instrucciones(int);
 pcb* crear_header(uint32_t, uint32_t, t_list*, t_config*);
+void empaquetar_y_enviar(t_buffer*, int, uint32_t);

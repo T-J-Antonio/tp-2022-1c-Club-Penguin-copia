@@ -1,7 +1,7 @@
 #include "utilsKernel.h"
 
 
-int iniciar_servidor(void)
+int iniciar_servidor(char* ip, char* puerto)
 {
 	int socket_servidor;
 
@@ -13,7 +13,7 @@ int iniciar_servidor(void)
 	hints.ai_socktype = SOCK_STREAM;
 	hints.ai_flags = AI_PASSIVE;
 
-	getaddrinfo(IP, PUERTO, &hints, &servinfo);
+	getaddrinfo(ip, puerto, &hints, &servinfo);
 
 	socket_servidor = socket(servinfo->ai_family,
 							servinfo->ai_socktype,
@@ -70,58 +70,160 @@ void* recibir_buffer(int* size, int socket_cliente)
 	return buffer;
 }
 
-t_list* recibir_instrucciones(int socket_cliente, uint32_t* tamanio_en_memoria){
+void* recibir_instrucciones(int socket_cliente){
 	int size;
-	uint32_t offset = 0;
 	void * buffer;
-	t_list* instrucciones = list_create();
+	void* buffer_aux;
 
 	buffer = recibir_buffer(&size, socket_cliente);
-	memcpy(tamanio_en_memoria, buffer, sizeof(uint32_t));
-	offset+=sizeof(uint32_t);
-	while(offset < size){
-		instruccion *recibida = malloc(sizeof(instruccion));
-		recibida->parametros = NULL;
-		memcpy(&recibida->cod_op, buffer + offset, sizeof(uint32_t));
-		offset+=sizeof(uint32_t);
-		memcpy(&recibida->tam_param, buffer + offset, sizeof(uint32_t));
-		offset+=sizeof(uint32_t);
+	buffer_aux = malloc(sizeof(uint32_t) + size);
+	memcpy(buffer_aux, &size, sizeof(uint32_t));
+	memcpy(buffer_aux + sizeof(uint32_t), buffer, size);
 
 
-		//lista de parametros
-		if(recibida->tam_param){
-			recibida->parametros = malloc(recibida->tam_param);
-			memcpy(recibida->parametros, buffer+offset, recibida->tam_param);
-			offset+=recibida->tam_param;
-		}
-
-
-		list_add(instrucciones, recibida);
-	}
 	free(buffer);
-	return instrucciones;
+	return buffer_aux;
 }
 
-void imprimir_instruccion(void * var){
-	instruccion *alo = (instruccion *) var;
 
-	printf("codigo de operacion: %d\n", alo->cod_op);
-	uint32_t i = 0;
-	uint32_t cant = alo->tam_param/sizeof(uint32_t);
 
-	while(i<cant){
-		printf("parametro: %d\n", alo->parametros[i]);
-		i++;
-	}
-}
-
-pcb* crear_header(uint32_t proximo_pid, uint32_t tamanio_en_memoria, t_list* lista_ins, t_config* config){
+pcb* crear_header(uint32_t proximo_pid, void* buffer_instrucciones, t_config* config){
 	pcb* header = malloc(sizeof(pcb));
+	uint32_t tamanio_del_stream;
+	uint32_t offset = 0;
+
+	memcpy(&tamanio_del_stream, buffer_instrucciones, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	header->tamanio_stream_instrucciones = tamanio_del_stream - sizeof(uint32_t);
+
 	header->pid = proximo_pid;
-	header->tamanio_en_memoria = tamanio_en_memoria;
-	header->instrucciones = lista_ins;
+	memcpy(header->tamanio_en_memoria, buffer_instrucciones + offset, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+
+	memcpy(header->instrucciones, buffer_instrucciones + offset, header->tamanio_stream_instrucciones);
+	free(buffer_instrucciones);
+
 	header->program_counter = 0;
+	header->tamanio_paginas =0;
 	header->tabla_paginas = NULL;
 	header->estimacion_siguiente = config_get_int_value(config, "ESTIMACION_INICIAL");
 	return header;
+}//aca vamos a tener que tener en cuenta los semaforos muchaches
+
+
+
+int crear_conexion(char *ip, char* puerto) {
+	struct addrinfo hints;
+	struct addrinfo *server_info;
+
+	uint32_t handshake =1;
+	uint32_t result;
+
+	memset(&hints, 0, sizeof(hints));
+	hints.ai_family = AF_UNSPEC;
+	hints.ai_socktype = SOCK_STREAM;
+	hints.ai_flags = AI_PASSIVE;
+
+	getaddrinfo(ip, puerto, &hints, &server_info);
+
+	int socket_cliente = 0;
+	socket_cliente = socket(server_info->ai_family, server_info->ai_socktype, server_info->ai_protocol);
+
+	// Ahora que tenemos el socket, vamos a conectarlo
+	connect(socket_cliente, server_info->ai_addr, server_info->ai_addrlen);
+
+	send(socket_cliente, &handshake, sizeof(uint32_t), 0);
+	recv(socket_cliente, &result, sizeof(uint32_t), MSG_WAITALL);
+	if(!result)
+		puts("conexion exitosa");
+	else
+		puts("conexion fallida");
+	freeaddrinfo(server_info);
+
+	return socket_cliente;
+}
+
+void liberar_conexion(int socket_cliente) {
+	close(socket_cliente);
+}
+void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion){
+	t_paquete* paquete = malloc(sizeof(t_paquete));
+	paquete->codigo_operacion_de_paquete = codigo_operacion;
+	paquete->buffer = buffer;
+
+	//  					 lista  codigo_operacion_de_paquete   tamaño_lista
+	void* a_enviar = malloc(buffer->size + sizeof(uint32_t) + sizeof(uint32_t));
+	uint32_t offset = 0;
+
+	memcpy(a_enviar + offset, &(paquete->codigo_operacion_de_paquete), sizeof(int));
+	offset += sizeof(int);
+	memcpy(a_enviar + offset, &(paquete->buffer->size), sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(a_enviar + offset, paquete->buffer->stream, paquete->buffer->size);
+
+	send(socket, a_enviar, buffer->size + sizeof(uint32_t) + sizeof(uint32_t), 0);
+
+
+	// No nos olvidamos de liberar la memoria que ya no usaremos
+	free(a_enviar);
+	eliminar_paquete(paquete);
+}
+
+
+void* serializar_header(pcb* header){
+	t_buffer* buffer = malloc(sizeof(t_buffer));
+	uint32_t offset = 0;
+	uint32_t buffer_size = 5*sizeof(uint32_t) + header->tamanio_stream_instrucciones + header->tamanio_paginas + sizeof(float);
+
+
+	buffer->size = 5*sizeof(uint32_t) + header->tamanio_stream_instrucciones + header->tamanio_paginas + sizeof(float); // Parámetros
+
+	buffer->stream = malloc(buffer->size);
+
+	memcpy(buffer->stream + offset, &header->pid, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(buffer->stream + offset, &header->tamanio_en_memoria, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(buffer->stream + offset, &header->tamanio_stream_instrucciones, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+
+	memcpy(buffer->stream + offset, header->instrucciones, header->tamanio_stream_instrucciones);
+	offset += header->tamanio_stream_instrucciones;
+
+	memcpy(buffer->stream + offset, &header->program_counter, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(buffer->stream + offset, &header->tamanio_paginas, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+
+	memcpy(buffer->stream + offset, header->tabla_paginas, header->tamanio_paginas);
+	offset += header->tamanio_paginas;
+
+	memcpy(buffer->stream + offset, &header->estimacion_siguiente, sizeof(float));
+	offset += sizeof(float);
+
+	return buffer;
+
+}
+
+void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion){
+	t_paquete* paquete = malloc(sizeof(t_paquete));
+	paquete->codigo_operacion_de_paquete = codigo_operacion;
+	paquete->buffer = buffer;
+
+	//  					 lista  codigo_operacion_de_paquete   tamaño_lista
+	void* a_enviar = malloc(buffer->size + sizeof(uint32_t) + sizeof(uint32_t));
+	uint32_t offset = 0;
+
+	memcpy(a_enviar + offset, &(paquete->codigo_operacion_de_paquete), sizeof(int));
+	offset += sizeof(int);
+	memcpy(a_enviar + offset, &(paquete->buffer->size), sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(a_enviar + offset, paquete->buffer->stream, paquete->buffer->size);
+
+	send(socket, a_enviar, buffer->size + sizeof(uint32_t) + sizeof(uint32_t), 0);
+
+
+	// No nos olvidamos de liberar la memoria que ya no usaremos
+	free(a_enviar);
+	eliminar_paquete(paquete);
 }
