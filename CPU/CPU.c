@@ -1,3 +1,13 @@
+#include"utilsCPU.h"
+
+
+
+int main(){
+	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/CPU/CPU.config");
+
+
+	return 0;
+}
 
 
 
@@ -25,12 +35,7 @@
 
 
 
-
-
-
-
-
-
+//falta agregarl lo nuevo
 
 
 

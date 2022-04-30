@@ -77,12 +77,17 @@ uint32_t agregar_una_instruccion(t_list * lista_ins, void * param, uint32_t flag
 		free(instrucciones);
 		return numero_de_veces;
 	}
-
-				//ver si hace falta sacar los parametros en caso de noop
-
-
 	int j = 1;
-	while(instrucciones[j]) {
+
+	if(instruccion_aux->cod_op == NO_OP && flag){
+		while(instrucciones[j]){
+			free(instrucciones[j]);
+			j++;
+		}
+	}
+	j =1;
+
+	while(instrucciones[j]){
 		uint32_t numero = (uint32_t)atoi(instrucciones[j]);
 		instruccion_aux->tam_param += sizeof(uint32_t);
 		instruccion_aux->parametros = (uint32_t *)realloc(instruccion_aux->parametros, j*sizeof(uint32_t));

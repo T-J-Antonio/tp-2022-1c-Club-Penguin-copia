@@ -42,7 +42,7 @@ typedef struct
 	uint32_t program_counter;
 	uint32_t tamanio_paginas;
 	void* tabla_paginas; //el tipo de dato se va a definir cuando hagamos la memoria
-	float estimacion_siguiente; // pendiente de cambio por temas de serializacion a dos uints
+	float estimacion_siguiente; // pendiente de cambio por temas de serializacion
 } pcb;
 
 
