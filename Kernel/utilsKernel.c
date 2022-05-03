@@ -1,6 +1,10 @@
 #include "utilsKernel.h"
 
-
+void eliminar_paquete(t_paquete* paquete) {
+	free(paquete->buffer->stream);
+	free(paquete->buffer);
+	free(paquete);
+}
 int iniciar_servidor(char* ip, char* puerto)
 {
 	int socket_servidor;
@@ -97,7 +101,7 @@ pcb* crear_header(uint32_t proximo_pid, void* buffer_instrucciones, t_config* co
 	header->tamanio_stream_instrucciones = tamanio_del_stream - sizeof(uint32_t);
 
 	header->pid = proximo_pid;
-	memcpy(header->tamanio_en_memoria, buffer_instrucciones + offset, sizeof(uint32_t));
+	memcpy(&header->tamanio_en_memoria, buffer_instrucciones + offset, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
 
 	memcpy(header->instrucciones, buffer_instrucciones + offset, header->tamanio_stream_instrucciones);
@@ -203,27 +207,4 @@ void* serializar_header(pcb* header){
 
 	return buffer;
 
-}
-
-void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion){
-	t_paquete* paquete = malloc(sizeof(t_paquete));
-	paquete->codigo_operacion_de_paquete = codigo_operacion;
-	paquete->buffer = buffer;
-
-	//  					 lista  codigo_operacion_de_paquete   tamaño_lista
-	void* a_enviar = malloc(buffer->size + sizeof(uint32_t) + sizeof(uint32_t));
-	uint32_t offset = 0;
-
-	memcpy(a_enviar + offset, &(paquete->codigo_operacion_de_paquete), sizeof(int));
-	offset += sizeof(int);
-	memcpy(a_enviar + offset, &(paquete->buffer->size), sizeof(uint32_t));
-	offset += sizeof(uint32_t);
-	memcpy(a_enviar + offset, paquete->buffer->stream, paquete->buffer->size);
-
-	send(socket, a_enviar, buffer->size + sizeof(uint32_t) + sizeof(uint32_t), 0);
-
-
-	// No nos olvidamos de liberar la memoria que ya no usaremos
-	free(a_enviar);
-	eliminar_paquete(paquete);
 }
