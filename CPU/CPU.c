@@ -117,10 +117,9 @@ void imprimir_pcb(pcb* recepcion){
 
 
 void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
-	while(1){//desde aca
+	while(1){
 		pthread_t thread_type;
 		int cliente_fd = esperar_cliente(socket_escucha_dispatch);
-		printf("creo\n");
 		void* _f_aux(void* cliente_fd){
 			pcb* recepcion = malloc(sizeof(pcb));
 			recepcion = recibir_pcb(*(int*)cliente_fd);
@@ -128,6 +127,6 @@ void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
 			return NULL;
 		}
 		int thread = pthread_create(&thread_type, NULL, _f_aux, (void*) &cliente_fd );
-	}//hasta aca se encarga de escuchar consolas,
+	}
  return NULL;
 }

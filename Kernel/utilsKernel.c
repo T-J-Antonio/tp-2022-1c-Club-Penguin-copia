@@ -98,12 +98,15 @@ pcb* crear_header(uint32_t proximo_pid, void* buffer_instrucciones, t_config* co
 
 	memcpy(&tamanio_del_stream, buffer_instrucciones, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
-	header->tamanio_stream_instrucciones = tamanio_del_stream - sizeof(uint32_t);
 
 	header->pid = proximo_pid;
+
 	memcpy(&header->tamanio_en_memoria, buffer_instrucciones + offset, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
 
+	header->tamanio_stream_instrucciones = tamanio_del_stream - sizeof(uint32_t);
+
+	header->instrucciones = malloc(header->tamanio_stream_instrucciones);
 	memcpy(header->instrucciones, buffer_instrucciones + offset, header->tamanio_stream_instrucciones);
 	free(buffer_instrucciones);
 
@@ -174,7 +177,7 @@ void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion
 }
 
 
-void* serializar_header(pcb* header){
+t_buffer* serializar_header(pcb* header){
 	t_buffer* buffer = malloc(sizeof(t_buffer));
 	uint32_t offset = 0;
 	uint32_t buffer_size = 5*sizeof(uint32_t) + header->tamanio_stream_instrucciones + header->tamanio_paginas + sizeof(float);

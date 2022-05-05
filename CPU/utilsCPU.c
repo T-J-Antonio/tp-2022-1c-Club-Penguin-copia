@@ -45,7 +45,7 @@ int esperar_cliente(int socket_servidor)
 	if(handshake ==1)
 		send(socket_cliente, &resultOk, sizeof(uint32_t), 0);
 	else
-		send(socket_cliente, &resultError, sizeof(uint32_t), 0); // cambiar NULL por 0
+		send(socket_cliente, &resultError, sizeof(uint32_t), 0);
 	log_info(logger, "Se conecto un cliente!");
 
 	return socket_cliente;
@@ -149,7 +149,7 @@ void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion
 	eliminar_paquete(paquete);
 }
 
-
+/*
 void* serializar_header(pcb* header){
 	t_buffer* buffer = malloc(sizeof(t_buffer));
 	uint32_t offset = 0;
@@ -183,4 +183,4 @@ void* serializar_header(pcb* header){
 
 	return buffer;
 
-}
+} */
