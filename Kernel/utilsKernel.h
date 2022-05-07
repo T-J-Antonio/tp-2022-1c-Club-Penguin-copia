@@ -58,8 +58,8 @@ int crear_conexion(char* ip, char* puerto);
 void liberar_conexion(int socket_cliente);
 
 //FUNCIONES PROPIAS
-void* serializar_header(pcb*);
+t_buffer* serializar_header(pcb*);
 void* recibir_buffer(int*, int);
 void* recibir_instrucciones(int);
-pcb* crear_header(uint32_t, void*, t_config*);
+void crear_header(uint32_t, void*, t_config*, pcb*);
 void empaquetar_y_enviar(t_buffer*, int, uint32_t);

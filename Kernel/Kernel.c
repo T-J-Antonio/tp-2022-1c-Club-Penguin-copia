@@ -40,20 +40,16 @@ void* recibiendo(void* input, t_config* config, pcb* cola_procesos_nuevos){
 
 	int* cliente_fd = (int *) input;
 	void* buffer_instrucciones;
-	pcb* header_proceso = malloc(sizeof(pcb));
-	while (1){
-		int codigo_de_paquete = recibir_operacion(*cliente_fd);
-		switch(codigo_de_paquete) {
-		case OPERACION_ENVIO_INSTRUCCIONES:
-			buffer_instrucciones = recibir_instrucciones(*cliente_fd);
-	//----------------------NOTA--parte de esto deberia ir en teoria en la planificacion de largo plazo no en recibir pero por ahroa queda asi
-			header_proceso = crear_header(proximo_pid, buffer_instrucciones, config);
-			log_info(logger, "Se recibió un header");
-			cola_procesos_nuevos = header_proceso; // aca deberiamos agregar a la cola
-			proximo_pid++;
-			send(*cliente_fd, &resultOk, sizeof(uint32_t), 0);
-			return NULL; //esto está conceptualmente mal creo
-		}
+	int codigo_de_paquete = recibir_operacion(*cliente_fd);
+	switch(codigo_de_paquete) {
+	case OPERACION_ENVIO_INSTRUCCIONES:
+		buffer_instrucciones = recibir_instrucciones(*cliente_fd);
+//----------------------NOTA--parte de esto deberia ir en teoria en la planificacion de largo plazo no en recibir pero por ahroa queda asi
+		crear_header(proximo_pid, buffer_instrucciones, config, cola_procesos_nuevos);
+		log_info(logger, "Se recibió un header");
+		proximo_pid++;
+		send(*cliente_fd, &resultOk, sizeof(uint32_t), 0);
+
 	}
 	return NULL;
 }
@@ -62,9 +58,11 @@ void* escuchar_consola(int socket_kernel_escucha, pcb* cola_procesos_nuevos, t_c
 		pthread_t thread_type;
 		int cliente_fd = esperar_cliente(socket_kernel_escucha);
 		void* _f_aux(void* cliente_fd){
-			recibiendo(cliente_fd, config, cola_procesos_nuevos);
+			recibiendo(cliente_fd, config, cola_procesos_nuevos);// post recibiendo perdemos las cosas
+			printf("tamanio stream instrucciones en escuchar: %d\n", cola_procesos_nuevos->tamanio_stream_instrucciones);
+
 			t_buffer* pcb_serializado = malloc(sizeof(t_buffer));
-			pcb_serializado = serializar_header(cola_procesos_nuevos); // por ahora aca, falta semaforos bien hechos
+			pcb_serializado = serializar_header(cola_procesos_nuevos); // por ahora aca, falta semaforos bien hechos cambiar para que no retorne nada a ver si se soluciona el error
 			empaquetar_y_enviar(pcb_serializado, conexion, 2);
 			return NULL;
 		}
