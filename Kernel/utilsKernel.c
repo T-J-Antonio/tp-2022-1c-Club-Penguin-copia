@@ -94,7 +94,6 @@ void* recibir_instrucciones(int socket_cliente){
 void crear_header(uint32_t proximo_pid, void* buffer_instrucciones, t_config* config, pcb* header){
 	uint32_t tamanio_del_stream;
 	uint32_t offset = 0;
-	uint32_t numero = 127;
 	header->instrucciones = NULL;
 
 	memcpy(&tamanio_del_stream, buffer_instrucciones, sizeof(uint32_t));
@@ -113,9 +112,9 @@ void crear_header(uint32_t proximo_pid, void* buffer_instrucciones, t_config* co
 	free(buffer_instrucciones);
 
 	header->program_counter = 0;
-	header->tamanio_paginas = sizeof(uint32_t);
-	header->tabla_paginas = &numero;
-	header->estimacion_siguiente = config_get_int_value(config, "ESTIMACION_INICIAL");
+	header->tamanio_paginas = 0;
+	header->tabla_paginas = NULL;
+	header->estimacion_siguiente = (float)config_get_int_value(config, "ESTIMACION_INICIAL");
 }//aca vamos a tener que tener en cuenta los semaforos
 
 
@@ -155,9 +154,10 @@ void liberar_conexion(int socket_cliente) {
 	close(socket_cliente);
 }
 void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion){
-
+	uint32_t tamanio = buffer->size + sizeof(uint32_t) + sizeof(uint32_t);
 	//  					 lista  codigo_operacion_de_paquete   tamaño_lista
-	void* a_enviar = malloc(buffer->size + sizeof(uint32_t) + sizeof(uint32_t));
+	void* a_enviar = malloc(tamanio);
+	printf("size: %d \n", tamanio);
 	uint32_t offset = 0;
 
 	memcpy(a_enviar + offset, &(codigo_operacion), sizeof(int));
@@ -207,6 +207,7 @@ t_buffer* serializar_header(pcb* header){
 
 	memcpy(buffer->stream + offset, &header->estimacion_siguiente, sizeof(float));
 	offset += sizeof(float);
+	printf("duda: %d\n", offset);
 
 	return buffer;
 
