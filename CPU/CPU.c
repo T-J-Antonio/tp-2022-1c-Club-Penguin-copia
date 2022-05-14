@@ -116,8 +116,12 @@ void imprimir_pcb(pcb* recepcion){
 
 void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
 	int cliente_fd = esperar_cliente(socket_escucha_dispatch);
+	int codigo_de_paquete = recibir_operacion(cliente_fd);
 	pcb* recepcion = malloc(sizeof(pcb));
-	recibir_pcb(cliente_fd, recepcion);
-	imprimir_pcb(recepcion);
+		switch(codigo_de_paquete) {
+		case OPERACION_ENVIO_PCB:
+			recibir_pcb(cliente_fd, recepcion);
+			imprimir_pcb(recepcion);
+		}
  return NULL;
 }

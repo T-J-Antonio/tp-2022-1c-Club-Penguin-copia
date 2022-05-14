@@ -95,7 +95,6 @@ void crear_header(uint32_t proximo_pid, void* buffer_instrucciones, t_config* co
 	uint32_t tamanio_del_stream;
 	uint32_t offset = 0;
 	header->instrucciones = NULL;
-	printf("pid: %d\n", proximo_pid);
 
 	memcpy(&tamanio_del_stream, buffer_instrucciones, sizeof(uint32_t));
 	offset += sizeof(uint32_t);

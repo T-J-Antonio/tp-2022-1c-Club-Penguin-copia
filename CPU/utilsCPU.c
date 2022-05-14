@@ -69,6 +69,7 @@ void* recibir_buffer(int* size, int socket_cliente)
 															// Al hacer el recv, el size se pierde, socket_cliente va a apuntar no al inicio, si no 4 bytes desplazados, o sea a donde comienzan las instrucciones
 	recv(socket_cliente, size, sizeof(int), MSG_WAITALL);   // Almacena en size lo que hay dentro de los primeros 4 bytes, que es el tamaño que van a ocupar las instrucciones
 	buffer = malloc(*size);									 // Le asignamos al buffer el tamaño que requerira para almacenar esas instrucciones
+	printf("tam: %d\n", *size);
 	recv(socket_cliente, buffer, *size, MSG_WAITALL);		 // Le damos las instrucciones
 
 	return buffer;

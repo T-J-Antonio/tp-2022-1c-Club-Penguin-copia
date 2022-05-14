@@ -59,11 +59,10 @@ void* escuchar_consola(int socket_kernel_escucha, pcb* cola_procesos_nuevos, t_c
 		int cliente_fd = esperar_cliente(socket_kernel_escucha);
 		void* _f_aux(void* cliente_fd){
 			recibiendo(cliente_fd, config, cola_procesos_nuevos);// post recibiendo perdemos las cosas
-			printf("tamanio stream instrucciones en escuchar: %d\n", cola_procesos_nuevos->tamanio_stream_instrucciones);
 
 			t_buffer* pcb_serializado = malloc(sizeof(t_buffer));
 			pcb_serializado = serializar_header(cola_procesos_nuevos); // por ahora aca, falta semaforos bien hechos cambiar para que no retorne nada a ver si se soluciona el error
-			empaquetar_y_enviar(pcb_serializado, conexion, 2);
+			empaquetar_y_enviar(pcb_serializado, conexion, OPERACION_ENVIO_PCB);
 			return NULL;
 		}
 		int thread = pthread_create(&thread_type, NULL, _f_aux, (void*) &cliente_fd );
