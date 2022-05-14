@@ -95,6 +95,7 @@ void crear_header(uint32_t proximo_pid, void* buffer_instrucciones, t_config* co
 	uint32_t tamanio_del_stream;
 	uint32_t offset = 0;
 	header->instrucciones = NULL;
+	printf("pid: %d\n", proximo_pid);
 
 	memcpy(&tamanio_del_stream, buffer_instrucciones, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
@@ -157,7 +158,6 @@ void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion
 	uint32_t tamanio = buffer->size + sizeof(uint32_t) + sizeof(uint32_t);
 	//  					 lista  codigo_operacion_de_paquete   tamaño_lista
 	void* a_enviar = malloc(tamanio);
-	printf("size: %d \n", tamanio);
 	uint32_t offset = 0;
 
 	memcpy(a_enviar + offset, &(codigo_operacion), sizeof(int));
@@ -180,9 +180,6 @@ t_buffer* serializar_header(pcb* header){
 	uint32_t offset = 0;
 	uint32_t buffer_size = 5*sizeof(uint32_t) + header->tamanio_stream_instrucciones + header->tamanio_paginas + sizeof(float);
 	buffer->size = 0;
-	printf("tamanio stream instrucciones: %d\n", header->tamanio_stream_instrucciones);
-	printf("tamanio pagina: %d\n", header->tamanio_paginas);
-	printf("size of float: %d\n", sizeof(float));
 	buffer->size = buffer_size;
 
 	buffer->stream = malloc(buffer->size);
@@ -207,7 +204,6 @@ t_buffer* serializar_header(pcb* header){
 
 	memcpy(buffer->stream + offset, &header->estimacion_siguiente, sizeof(float));
 	offset += sizeof(float);
-	printf("duda: %d\n", offset);
 
 	return buffer;
 

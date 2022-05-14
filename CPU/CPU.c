@@ -4,7 +4,7 @@
 void* escuchar_kernel(int , t_config*);
 void imprimir_pcb(pcb* );
 void imprimir_instruccion(void * );
-pcb* recibir_pcb(int );
+void recibir_pcb(int , pcb* );
 
 int main(){
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/CPU/CPU.config");
@@ -29,13 +29,12 @@ int main(){
 }
 
 
-pcb* recibir_pcb(int socket_cliente){
+void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
 	int size;
 	uint32_t offset = 0;
 	uint32_t offset_instrucciones = 0;
 	void * buffer;
 	t_list* instrucciones = list_create();
-	pcb *pcb_recibido = malloc(sizeof(pcb));
 
 	buffer = recibir_buffer(&size, socket_cliente); // almacena en size el tamanio de todo el buffer y ademas guarda en buffer todo el stream
 	memcpy(&pcb_recibido->pid, buffer, sizeof(uint32_t));
@@ -84,7 +83,6 @@ pcb* recibir_pcb(int socket_cliente){
 
 	free(buffer);
 
-	return pcb_recibido;
 }
 
 void imprimir_instruccion(void * var){
@@ -117,16 +115,9 @@ void imprimir_pcb(pcb* recepcion){
 
 
 void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
-	while(1){
-		pthread_t thread_type;
-		int cliente_fd = esperar_cliente(socket_escucha_dispatch);
-		void* _f_aux(void* cliente_fd){
-			pcb* recepcion = malloc(sizeof(pcb));
-			recepcion = recibir_pcb(*(int*)cliente_fd);
-			imprimir_pcb(recepcion);
-			return NULL;
-		}
-		int thread = pthread_create(&thread_type, NULL, _f_aux, (void*) &cliente_fd );
-	}
+	int cliente_fd = esperar_cliente(socket_escucha_dispatch);
+	pcb* recepcion = malloc(sizeof(pcb));
+	recibir_pcb(cliente_fd, recepcion);
+	imprimir_pcb(recepcion);
  return NULL;
 }
