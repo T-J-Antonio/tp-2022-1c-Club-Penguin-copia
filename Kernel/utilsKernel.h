@@ -9,6 +9,7 @@
 #include <commons/collections/list.h>
 #include <assert.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #define OPERACION_ENVIO_INSTRUCCIONES 0
 #define OPERACION_ENVIO_PCB 1

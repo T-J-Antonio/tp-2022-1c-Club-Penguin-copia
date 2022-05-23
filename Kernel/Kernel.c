@@ -3,8 +3,23 @@ uint32_t resultOk = 0;
 
 void* recibiendo(void* , t_config*, pcb*);
 
+sem_t* mutex_planificador_largo_plazo;
+
+sem_t* mutex_planificador_largo_plazo;
+
+sem_t* mutex_planificador_largo_plazo;
+
+
+
+
 void* escuchar_consola(int , pcb* , t_config* ,int);
 int main(void) {
+
+	sem_init(mutex_planificador_largo_plazo, 0, 1);
+
+
+
+
 	pcb* cola_procesos_nuevos = malloc(sizeof(pcb));
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/Kernel/kernel.config");
 	logger = log_create("log.log", "Servidor", 1, LOG_LEVEL_DEBUG);

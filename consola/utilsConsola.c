@@ -80,6 +80,7 @@ uint32_t agregar_una_instruccion(t_list * lista_ins, void * param, uint32_t flag
 	int j = 1;
 
 	if(instruccion_aux->cod_op == NO_OP && flag){
+		instruccion_aux->tam_param = 0;
 		while(instrucciones[j]){
 			free(instrucciones[j]);
 			j++;
@@ -87,7 +88,7 @@ uint32_t agregar_una_instruccion(t_list * lista_ins, void * param, uint32_t flag
 	}
 	j =1;
 
-	while(instrucciones[j]){
+	while(instrucciones[j] && !flag){
 		uint32_t numero = (uint32_t)atoi(instrucciones[j]);
 		instruccion_aux->tam_param += sizeof(uint32_t);
 		instruccion_aux->parametros = (uint32_t *)realloc(instruccion_aux->parametros, j*sizeof(uint32_t));
