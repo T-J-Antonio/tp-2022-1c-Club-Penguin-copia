@@ -6,6 +6,7 @@
 #include <netdb.h>
 #include <commons/log.h>
 #include <commons/config.h>
+#include <commons/collections/queue.h>
 #include <commons/collections/list.h>
 #include <assert.h>
 #include <pthread.h>
