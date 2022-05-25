@@ -13,6 +13,7 @@
 #define OPERACION_ENVIO_INSTRUCCIONES 0
 #define OPERACION_ENVIO_PCB 1
 
+#define PROCESO_FINALIZADO 0
 
 t_log* logger;
 
@@ -33,18 +34,28 @@ typedef struct
 	uint32_t codigo_operacion_de_paquete;
 	t_buffer* buffer;
 } t_paquete;
+
 typedef struct
 {
 	uint32_t pid;
 	uint32_t tamanio_en_memoria;
-	uint32_t tamanio_stream_instrucciones;
-	void* instrucciones;
+	t_list* instrucciones;
 	uint32_t program_counter;
 	uint32_t tamanio_paginas;
 	void* tabla_paginas; //el tipo de dato se va a definir cuando hagamos la memoria
 	float estimacion_siguiente; // pendiente de cambio por temas de serializacion
 } pcb;
 
+
+enum operaciones
+{
+	NO_OP = 0,
+	I_O = 1,
+	READ = 2,
+	WRITE = 3,
+	COPY = 4,
+	EXIT = 5
+};
 
 //FUNCIONES TRAÍDAS DEL TP0
 
@@ -63,3 +74,6 @@ void* recibir_buffer(int*, int);
 void* recibir_instrucciones(int);
 pcb* crear_header(uint32_t, uint32_t, t_list*, t_config*);
 void empaquetar_y_enviar(t_buffer*, int, uint32_t);
+void imprimir_pcb(pcb* );
+void imprimir_instruccion(void * );
+void recibir_pcb(int , pcb* );

@@ -150,6 +150,89 @@ void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion
 	eliminar_paquete(paquete);
 }
 
+
+void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
+	int size;
+	uint32_t offset = 0;
+	uint32_t offset_instrucciones = 0;
+	void * buffer;
+	uint32_t tamanio_stream_instrucciones = 0; //creo variable para almacenar el tamaño (ya no lo tiene el pcb)
+	t_list* instrucciones = list_create();
+
+	buffer = recibir_buffer(&size, socket_cliente); // almacena en size el tamanio de todo el buffer y ademas guarda en buffer todo el stream
+	memcpy(&pcb_recibido->pid, buffer, sizeof(uint32_t));
+	offset+=sizeof(uint32_t);
+
+	memcpy(&pcb_recibido->tamanio_en_memoria, buffer + offset, sizeof(uint32_t));
+	offset+=sizeof(uint32_t);
+
+	memcpy(&tamanio_stream_instrucciones, buffer + offset, sizeof(uint32_t));
+	offset+=sizeof(uint32_t);
+
+	while(offset_instrucciones < tamanio_stream_instrucciones){
+		instruccion *ins_recibida = malloc(sizeof(instruccion));
+		ins_recibida->parametros = NULL;
+		memcpy(&ins_recibida->cod_op, buffer + offset + offset_instrucciones, sizeof(uint32_t));
+		offset_instrucciones+=sizeof(uint32_t);
+		memcpy(&ins_recibida->tam_param, buffer + offset + offset_instrucciones, sizeof(uint32_t));
+		offset_instrucciones+=sizeof(uint32_t);
+
+
+		//lista de parametros
+		if(ins_recibida->tam_param){
+			ins_recibida->parametros = malloc(ins_recibida->tam_param);
+			memcpy(ins_recibida->parametros, buffer + offset + offset_instrucciones, ins_recibida->tam_param);
+			offset_instrucciones+=ins_recibida->tam_param;
+		}
+
+		list_add(instrucciones, ins_recibida);
+	}
+
+	pcb_recibido->instrucciones = instrucciones; // podemos cambiar la def de pcb dentro del cpu para no tener que castear a void, en realidad seria mas logico usar queue asi usamos pop y borra la ins usada
+
+	offset += offset_instrucciones;
+
+	memcpy(&pcb_recibido->program_counter, buffer + offset, sizeof(uint32_t));
+	offset+=sizeof(uint32_t);
+
+	memcpy(&pcb_recibido->tamanio_paginas, buffer + offset, sizeof(uint32_t));
+	offset+=sizeof(uint32_t);
+
+	memcpy(pcb_recibido->tabla_paginas, buffer + offset, pcb_recibido->tamanio_paginas);
+	offset+=pcb_recibido->tamanio_paginas;
+
+	memcpy(&pcb_recibido->estimacion_siguiente, buffer + offset, sizeof(float));
+	offset+=sizeof(float);
+
+	free(buffer);
+
+}
+
+void imprimir_instruccion(void * var){
+	instruccion *alo = (instruccion *) var;
+
+	printf("codigo de operacion: %d\n", alo->cod_op);
+	uint32_t i = 0;
+	uint32_t cant = alo->tam_param/sizeof(uint32_t);
+
+	while(i<cant){
+		printf("parametro: %d\n", alo->parametros[i]);
+		i++;
+	}
+}
+
+
+
+void imprimir_pcb(pcb* recepcion){
+	printf("pid: %d\n", recepcion->pid);
+	printf("tamanio_en_memoria: %d\n", recepcion->tamanio_en_memoria);
+	list_iterate(recepcion->instrucciones, imprimir_instruccion);
+	printf("program_counter: %d\n", recepcion->program_counter);
+	printf("tamanio_paginas: %d\n", recepcion->tamanio_paginas);
+	printf("estimacion_siguiente: %f\n", recepcion->estimacion_siguiente);
+
+}
+
 /*
 void* serializar_header(pcb* header){
 	t_buffer* buffer = malloc(sizeof(t_buffer));

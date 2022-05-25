@@ -1,10 +1,8 @@
-#include"utilsCPU.h"
+#include "utilsCPU.h"
+
 
 
 void* escuchar_kernel(int , t_config*);
-void imprimir_pcb(pcb* );
-void imprimir_instruccion(void * );
-void recibir_pcb(int , pcb* );
 
 int main(){
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/CPU/CPU.config");
@@ -29,99 +27,67 @@ int main(){
 }
 
 
-void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
-	int size;
-	uint32_t offset = 0;
-	uint32_t offset_instrucciones = 0;
-	void * buffer;
-	t_list* instrucciones = list_create();
-
-	buffer = recibir_buffer(&size, socket_cliente); // almacena en size el tamanio de todo el buffer y ademas guarda en buffer todo el stream
-	memcpy(&pcb_recibido->pid, buffer, sizeof(uint32_t));
-	offset+=sizeof(uint32_t);
-
-	memcpy(&pcb_recibido->tamanio_en_memoria, buffer + offset, sizeof(uint32_t));
-	offset+=sizeof(uint32_t);
-
-	memcpy(&pcb_recibido->tamanio_stream_instrucciones, buffer + offset, sizeof(uint32_t));
-	offset+=sizeof(uint32_t);
-
-	while(offset_instrucciones < pcb_recibido->tamanio_stream_instrucciones){
-		instruccion *ins_recibida = malloc(sizeof(instruccion));
-		ins_recibida->parametros = NULL;
-		memcpy(&ins_recibida->cod_op, buffer + offset + offset_instrucciones, sizeof(uint32_t));
-		offset_instrucciones+=sizeof(uint32_t);
-		memcpy(&ins_recibida->tam_param, buffer + offset + offset_instrucciones, sizeof(uint32_t));
-		offset_instrucciones+=sizeof(uint32_t);
-
-
-		//lista de parametros
-		if(ins_recibida->tam_param){
-			ins_recibida->parametros = malloc(ins_recibida->tam_param);
-			memcpy(ins_recibida->parametros, buffer + offset + offset_instrucciones, ins_recibida->tam_param);
-			offset_instrucciones+=ins_recibida->tam_param;
-		}
-
-		list_add(instrucciones, ins_recibida);
-	}
-
-	pcb_recibido->instrucciones = (void *) instrucciones; // podemos cambiar la def de pcb dentro del cpu para no tener que castear a void, en realidad seria mas logico usar queue asi usamos pop y borra la ins usada
-
-	offset += offset_instrucciones;
-
-	memcpy(&pcb_recibido->program_counter, buffer + offset, sizeof(uint32_t));
-	offset+=sizeof(uint32_t);
-
-	memcpy(&pcb_recibido->tamanio_paginas, buffer + offset, sizeof(uint32_t));
-	offset+=sizeof(uint32_t);
-
-	memcpy(pcb_recibido->tabla_paginas, buffer + offset, pcb_recibido->tamanio_paginas);
-	offset+=pcb_recibido->tamanio_paginas;
-
-	memcpy(&pcb_recibido->estimacion_siguiente, buffer + offset, sizeof(float));
-	offset+=sizeof(float);
-
-	free(buffer);
-
-}
-
-void imprimir_instruccion(void * var){
-	instruccion *alo = (instruccion *) var;
-
-	printf("codigo de operacion: %d\n", alo->cod_op);
-	uint32_t i = 0;
-	uint32_t cant = alo->tam_param/sizeof(uint32_t);
-
-	while(i<cant){
-		printf("parametro: %d\n", alo->parametros[i]);
-		i++;
-	}
-}
-
-
-
-void imprimir_pcb(pcb* recepcion){
-	printf("pid: %d\n", recepcion->pid);
-	printf("tamanio_en_memoria: %d\n", recepcion->tamanio_en_memoria);
-	printf("tamanio_stream_instrucciones: %d\n", recepcion->tamanio_stream_instrucciones);
-	list_iterate((t_list*)recepcion->instrucciones, imprimir_instruccion);
-	printf("program_counter: %d\n", recepcion->program_counter);
-	printf("tamanio_paginas: %d\n", recepcion->tamanio_paginas);
-	printf("estimacion_siguiente: %f\n", recepcion->estimacion_siguiente);
-
-}
-
-
-
-
 void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
 	int cliente_fd = esperar_cliente(socket_escucha_dispatch);
 	int codigo_de_paquete = recibir_operacion(cliente_fd);
-	pcb* recepcion = malloc(sizeof(pcb));
+	pcb* recibido = malloc(sizeof(pcb));
 		switch(codigo_de_paquete) {
 		case OPERACION_ENVIO_PCB:
-			recibir_pcb(cliente_fd, recepcion);
-			imprimir_pcb(recepcion);
+			recibir_pcb(cliente_fd, recibido);
+			imprimir_pcb(recibido);
+
 		}
- return NULL;
+	return NULL;
 }
+
+
+void ciclo_de_instruccion(pcb* en_ejecucion, t_config* config, int socket_escucha_dispatch){
+	int tiempo_espera = config_get_int_value(config, "RETARDO_NOOP") / 1000;
+	int tiempo_bloqueo = 0;
+	//fetch
+	instruccion* a_ejecutar = list_get(en_ejecucion->instrucciones, en_ejecucion->program_counter);
+
+	//decode
+	int cod_op = a_ejecutar->cod_op;
+
+	//fetch operands
+	if(cod_op == COPY) {
+		//próximamente
+	}
+
+	//execute
+	switch(cod_op){
+	case NO_OP:
+		sleep(tiempo_espera);
+		++(en_ejecucion->program_counter);
+		break;
+
+	case I_O:
+		++(en_ejecucion->program_counter);
+		tiempo_bloqueo = a_ejecutar->parametros[0];
+		send(socket_escucha_dispatch, &tiempo_bloqueo, sizeof(uint32_t), 0);
+		//¿cómo le decimos al kernel que se bloquee por x tiempo?
+		break;
+
+	case READ:
+		//próximamente
+		break;
+	case WRITE:
+		//próximamente
+		break;
+	case COPY:
+		//próximamente
+		break;
+	case EXIT:
+		//podríamos mandarle PID + lo que hay que hacer, ya que hay múltiples hilos esperando pero un solo socket
+		send(socket_escucha_dispatch, &PROCESO_FINALIZADO, sizeof(uint32_t), 0);
+		//¿cómo le decimos al kernel que terminó?
+		break;
+	}
+
+	//check interrupt
+}
+
+
+
+
