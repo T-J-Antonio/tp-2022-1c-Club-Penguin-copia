@@ -5,9 +5,11 @@
 #include <unistd.h>
 #include <netdb.h>
 #include <commons/log.h>
+#include <commons/string.h>
 #include <commons/config.h>
 #include <commons/collections/queue.h>
 #include <commons/collections/list.h>
+#include <commons/collections/dictionary.h>
 #include <assert.h>
 #include <pthread.h>
 #include <semaphore.h>
@@ -48,6 +50,32 @@ typedef struct
 } pcb;
 
 
+
+sem_t* contador_de_listas_esperando_para_estar_en_ready; //indicar al plani largo cuando el grado de multiprogramacion decrece y puede poner uno en ready
+
+sem_t* sem_contador_multiprogramacion;
+
+sem_t* mutex_cola_ready; //mutex para trabajar sobre la lista de ready
+
+sem_t* mutex_grado_de_multiprogramacion; //mutex para trabajar sobre la varianle global "grado de multiprogramacion"
+
+sem_t* mutex_cola_new; //mutex para trabajar sobre la lista de new
+
+sem_t* mutex_cola_sus_ready;
+
+t_queue* cola_procesos_nuevos;
+
+t_queue* cola_procesos_sus_ready;
+
+t_queue* cola_de_ready;
+
+t_dictionary* pid_handler;
+
+int conexion_CPU_dispatch;
+
+
+
+
 //FUNCIONES TRAÍDAS DEL TP0
 
 int iniciar_servidor(char*, char*);
@@ -65,3 +93,9 @@ void* recibir_buffer(int*, int);
 void* recibir_instrucciones(int);
 void crear_header(uint32_t, void*, t_config*, pcb*);
 void empaquetar_y_enviar(t_buffer*, int, uint32_t);
+
+
+void* recibiendo(void* , t_config*);
+void* funcion_pasar_a_ready(void*);
+void pasar_a_running(pcb*);
+void* escuchar_consola(int , t_config*);
