@@ -17,6 +17,10 @@
 
 #define OPERACION_ENVIO_INSTRUCCIONES 0
 #define OPERACION_ENVIO_PCB 1
+#define OPERACION_IO 2
+#define OPERACION_EXIT 3
+#define CPU_LIBRE 4
+#define OPERACION_INTERRUPT 5
 
 
 t_log* logger;
@@ -64,11 +68,23 @@ sem_t* mutex_cola_new; //mutex para trabajar sobre la lista de new
 
 sem_t* mutex_cola_sus_ready;
 
+sem_t* mutex_cola_suspendido;
+
+sem_t* binario_flag_interrupt;
+
+sem_t* actualmente_replanificando;
+
+sem_t* signal_a_io;
+
+sem_t* dispositivo_de_io;
+
 t_queue* cola_procesos_nuevos;
 
 t_queue* cola_procesos_sus_ready;
 
 t_queue* cola_de_ready;
+
+t_queue* cola_de_io;
 
 t_dictionary* pid_handler;
 
@@ -100,3 +116,4 @@ void* recibiendo(void* , t_config*);
 void* funcion_pasar_a_ready(void*);
 void pasar_a_running(pcb*);
 void* escuchar_consola(int , t_config*);
+void recibir_pcb(int , pcb* );

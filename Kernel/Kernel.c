@@ -7,14 +7,15 @@ uint32_t resultOk = 0;
 float estimacion_inicial;
 float alfa;
 
+int flag_respuesta_a_interupcion;
 int conexion_cpu_interrupt;
-
+int tiempo_de_espera_max;
+pcb* ejecutado;
 float tiempo_inicio;
 
 
 pcb* algoritmo_srt();
 int main(void) {
-
 	pid_handler = dictionary_create();
 
 	sem_init(mutex_cola_new, 0, 1);
@@ -23,14 +24,23 @@ int main(void) {
 
 	sem_init(mutex_cola_ready, 0, 1);
 
-	sem_init(mutex_grado_de_multiprogramacion, 0, 1);
-
 	sem_init(contador_de_listas_esperando_para_estar_en_ready, 0, 0);
+
+	sem_init(binario_flag_interrupt, 0, 0);
+
+	sem_init(actualmente_replanificando, 0, 0);
+
+	sem_init(mutex_cola_suspendido, 0, 1);
+
+	sem_init(signal_a_io, 0, 0);
+
+	sem_init(dispositivo_de_io, 0, 1);
 
 
 	cola_procesos_nuevos = queue_create();
 	cola_procesos_sus_ready = queue_create();
 	cola_de_ready = queue_create();
+	cola_de_io = queue_create();
 
 
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/Kernel/kernel.config");
@@ -38,6 +48,10 @@ int main(void) {
 
 	char* ip_CPU = config_get_string_value(config, "IP_CPU");
 	char* puerto_CPU = config_get_string_value(config, "PUERTO_CPU_DISPATCH");
+
+
+	tiempo_de_espera_max = config_get_int_value(config, "TIEMPO_MAXIMO_BLOQUEADO");
+
 
 	int grado_de_multiprogramacion = config_get_int_value(config, "GRADO_MULTIPROGRAMACION");
 	sem_init(sem_contador_multiprogramacion, 0, grado_de_multiprogramacion);
@@ -70,8 +84,8 @@ int main(void) {
 	pthread_t pasar_a_ready;
 	pthread_create(&pasar_a_ready, NULL, funcion_pasar_a_ready, NULL );
 
-	pthread_t recibir_procesos_por_io;
-	pthread_create(&recibir_procesos_por_io, NULL, funcion_pasar_a_ready, NULL );
+	pthread_t recibir_procesos_por_cpu;
+	pthread_create(&recibir_procesos_por_cpu, NULL, recibir_pcb_de_cpu, NULL );
 
 
 	pthread_join(socket_escucha_consola, NULL);
@@ -98,10 +112,10 @@ void* recibiendo(void* input, t_config* config){
 		sem_wait(mutex_cola_new);
 
 		crear_header(proximo_pid, buffer_instrucciones, config, nuevo_pcb, estimacion_inicial);
-		char* string_pid = string_itoa(proximo_pid);
+		//char* string_pid = string_itoa(proximo_pid);
 
 		queue_push(cola_procesos_nuevos, (void*) nuevo_pcb);
-		dictionary_put(pid_handler, string_pid, (void*) cliente_fd);
+		//dictionary_put(pid_handler, string_pid, (void*) cliente_fd); aca vamos a agregarlo al pcb no hace falta
 
 		proximo_pid++;
 
@@ -198,13 +212,106 @@ void pasar_a_running(pcb* proceso_ready){
 }
 
 
-void recibir_pcb_de_cpu( t_config* config, pcb* pcb_ejecutado){
-	void* buffer_instrucciones;
-	int codigo_de_paquete = recibir_operacion(conexion_CPU_dispatch);
-	switch(codigo_de_paquete) {
-	case 22:  //debaria ser el caso de recibir interupt
-		buffer_instrucciones = recibir_instrucciones(*conexion_CPU_dispatch);// recibir pcb funcion ya definida en cpu, hay que usar esa
+
+void* dispositivo_io(){
+	int cantidad_en_io;
+	sem_getvalue(actualmente_replanificando, &cantidad_en_io);
+	if(cantidad_en_io){
+		sem_wait(mutex_cola_suspendido);
+		if(sem_trywait(dispositivo_de_io) == 0){
+			//llamar a un hilo que se encargue de hacer que ese proceso haga su espera, y al terminar signal del semaforo
+			queue_pop(cola_de_io);
+			cantidad_en_io--;
+
+		}
+		for(int i=0; i<cantidad_en_io; i++ ){
+			float tiempo_actual = ((float) time(NULL))*1000;
+			// checkear si la diferencia entre tiempo de pcb y actual es mayor a la espera maxima, entonces subo el grado de multiprogramacion
+			pcb* proceso_sus = queue_pop(cola_de_io);
+			char* string_pid = string_itoa(proceso_sus->pid);
+			float io[2] = (float*) dictionary_get(pid_handler, string_pid );
+			if((tiempo_actual - io[1]) > tiempo_de_espera_max) sem_post(sem_contador_multiprogramacion); //aparte mandar un msg que no conocemos a memoria
+			queue_push(cola_de_io, (void*) proceso_sus);
+		}
+		sem_post(mutex_cola_suspendido);
 	}
+
+
+
+	return NULL;
+}
+
+void* recibir_pcb_de_cpu( t_config* config, pcb* pcb_ejecutado){
+	int codigo_de_paquete = recibir_operacion(conexion_CPU_dispatch);
+	pcb* proceso_recibido = malloc(sizeof(pcb));
+	float io[2];
+	uint32_t aux;
+	int semaforo;
+	while(1){
+		switch(codigo_de_paquete) {
+
+		case OPERACION_IO:  //debaria ser el caso de recibir interupt
+
+			sem_getvalue(actualmente_replanificando, &semaforo);
+			recv(conexion_CPU_dispatch, &aux, sizeof(uint32_t), MSG_WAITALL);
+
+			recibir_pcb(conexion_CPU_dispatch, proceso_recibido);
+
+			io[0] = (float)aux;
+			io[1] = ((float)time(NULL))*1000;
+			char* string_pid = string_itoa(proceso_recibido->pid);
+
+			sem_wait(mutex_cola_suspendido);
+
+			dictionary_put(pid_handler, string_pid, (void*) io);
+			queue_push(cola_de_io, proceso_recibido);
+
+			sem_post(mutex_cola_suspendido);
+			sem_post(signal_a_io);
+
+			if(!semaforo){
+				planificador_de_corto_plazo();
+			}
+			break;
+
+		case OPERACION_EXIT:
+			sem_getvalue(actualmente_replanificando, &semaforo);
+
+			recibir_pcb(conexion_CPU_dispatch, proceso_recibido);
+
+			//2 sendv(memoria, borrar_pid, int, 0);
+			//recv(memoria, borrar_pid, int, MSG_WAITALL); mensaje de que ya elimino la mem para proceder
+			//sendv(proceso_recibido->socket, 1, int, 0); aviso a la consola que termino su proceso
+
+			sem_post(sem_contador_multiprogramacion);
+
+
+
+			if(!semaforo){
+				planificador_de_corto_plazo();
+			}
+			break;
+
+		case OPERACION_INTERRUPT:
+			ejecutado = malloc(sizeof(pcb));
+			recibir_pcb(conexion_CPU_dispatch, ejecutado);
+
+			flag_respuesta_a_interupcion = 1;
+			sem_post(binario_flag_interrupt);
+
+
+			break;
+		case CPU_LIBRE:
+
+			flag_respuesta_a_interupcion = 2;
+			sem_post(binario_flag_interrupt);
+
+
+			break;
+		}
+	}
+
+ return NULL;
 }
 
 
@@ -213,11 +320,17 @@ void recibir_pcb_de_cpu( t_config* config, pcb* pcb_ejecutado){
 
 void planificador_de_corto_plazo(){
 
-	pcb* ejecutado = malloc(sizeof(pcb));
+	sem_post(actualmente_replanificando);
 
 	uint32_t interrupt = 22;
+	flag_respuesta_a_interupcion =0;
 
 	send(conexion_cpu_interrupt, &interrupt, sizeof(uint32_t), 0);
+	sem_wait(binario_flag_interrupt);
+	switch(flag_respuesta_a_interupcion){
+
+
+	}
 
 	//sabemos que vamos a recibir por parte de la cpu, el pcb que se estaba ejecutando, NO SIEMPRE
 
@@ -229,6 +342,9 @@ void planificador_de_corto_plazo(){
 
 	//if(se fue antes, seguir sin tenerlo en cuenta
 
+	//al final
+
+	sem_wait(actualmente_replanificando);
 }
 
 
