@@ -9,11 +9,14 @@
 #include <commons/collections/list.h>
 #include <assert.h>
 #include <pthread.h>
+#include <semaphore.h>
 
 #define OPERACION_ENVIO_INSTRUCCIONES 0
 #define OPERACION_ENVIO_PCB 1
+#define OPERACION_ENVIO_INTERRUPCION 2
 
 #define PROCESO_FINALIZADO 0
+#define PROCESO_INTERRUMPIDO -1
 
 t_log* logger;
 
@@ -46,6 +49,10 @@ typedef struct
 	float estimacion_siguiente; // pendiente de cambio por temas de serializacion
 } pcb;
 
+typedef struct {
+	uint32_t pid;
+	uint32_t resultado;
+} pcb_actualizado;
 
 enum operaciones
 {
@@ -77,3 +84,5 @@ void empaquetar_y_enviar(t_buffer*, int, uint32_t);
 void imprimir_pcb(pcb* );
 void imprimir_instruccion(void * );
 void recibir_pcb(int , pcb* );
+void* serializar_pcb_actualizado(uint32_t, int32_t);
+

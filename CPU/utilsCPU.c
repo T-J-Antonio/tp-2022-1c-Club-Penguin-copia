@@ -233,6 +233,20 @@ void imprimir_pcb(pcb* recepcion){
 
 }
 
+void* serializar_pcb_actualizado(uint32_t pid, int32_t resultado){
+	t_buffer* buffer = malloc(sizeof(t_buffer));
+	uint32_t offset = 0;
+
+	buffer->size = 2*sizeof(uint32_t);
+	buffer->stream = malloc(buffer->size);
+
+	memcpy(buffer->stream, &pid, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(buffer->stream + offset, &resultado, sizeof(uint32_t));
+
+	return buffer;
+}
+
 /*
 void* serializar_header(pcb* header){
 	t_buffer* buffer = malloc(sizeof(t_buffer));
