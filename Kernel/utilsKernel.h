@@ -13,6 +13,7 @@
 #include <assert.h>
 #include <pthread.h>
 #include <semaphore.h>
+#include <time.h>
 
 #define OPERACION_ENVIO_INSTRUCCIONES 0
 #define OPERACION_ENVIO_PCB 1
@@ -91,7 +92,7 @@ void liberar_conexion(int socket_cliente);
 t_buffer* serializar_header(pcb*);
 void* recibir_buffer(int*, int);
 void* recibir_instrucciones(int);
-void crear_header(uint32_t, void*, t_config*, pcb*);
+void crear_header(uint32_t, void*, t_config*, pcb*, float);
 void empaquetar_y_enviar(t_buffer*, int, uint32_t);
 
 

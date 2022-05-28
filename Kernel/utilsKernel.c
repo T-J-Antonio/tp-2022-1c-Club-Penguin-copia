@@ -91,7 +91,7 @@ void* recibir_instrucciones(int socket_cliente){
 
 
 
-void crear_header(uint32_t proximo_pid, void* buffer_instrucciones, t_config* config, pcb* header){
+void crear_header(uint32_t proximo_pid, void* buffer_instrucciones, t_config* config, pcb* header, float estimacion_inicial){
 	uint32_t tamanio_del_stream;
 	uint32_t offset = 0;
 	header->instrucciones = NULL;
@@ -114,8 +114,8 @@ void crear_header(uint32_t proximo_pid, void* buffer_instrucciones, t_config* co
 	header->program_counter = 0;
 	header->tamanio_paginas = 0;
 	header->tabla_paginas = NULL;
-	header->estimacion_siguiente = (float)config_get_int_value(config, "ESTIMACION_INICIAL");
-}//aca vamos a tener que tener en cuenta los semaforos
+	header->estimacion_siguiente = estimacion_inicial;
+}
 
 
 

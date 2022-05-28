@@ -3,6 +3,15 @@
 
 uint32_t proximo_pid = 0;
 uint32_t resultOk = 0;
+
+float estimacion_inicial;
+float alfa;
+
+int conexion_cpu_interrupt;
+
+float tiempo_inicio;
+
+
 pcb* algoritmo_srt();
 int main(void) {
 
@@ -37,6 +46,12 @@ int main(void) {
 	char* puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
 	int socket_kernel_escucha = iniciar_servidor(ip_kernel, puerto_escucha);//ip kernel unica, pero el puerto es el del escucha,
 
+	char* puerto_interrupt = config_get_string_value(config, "PUERTO_CPU_INTERRUPT");
+	conexion_cpu_interrupt = iniciar_servidor(ip_CPU, puerto_interrupt);//conexion al puerto de cpu para interrumpir
+
+	estimacion_inicial = (float) config_get_int_value(config, "ESTIMACION_INICIAL");
+	alfa = (float) config_get_int_value(config, "ALFA");
+
 	conexion_CPU_dispatch = crear_conexion(ip_CPU, puerto_CPU);
 
 	void* _f_aux_escucha_consola(void *socket_kernel_escucha){
@@ -54,6 +69,10 @@ int main(void) {
 
 	pthread_t pasar_a_ready;
 	pthread_create(&pasar_a_ready, NULL, funcion_pasar_a_ready, NULL );
+
+	pthread_t recibir_procesos_por_io;
+	pthread_create(&recibir_procesos_por_io, NULL, funcion_pasar_a_ready, NULL );
+
 
 	pthread_join(socket_escucha_consola, NULL);
 
@@ -78,7 +97,7 @@ void* recibiendo(void* input, t_config* config){
 
 		sem_wait(mutex_cola_new);
 
-		crear_header(proximo_pid, buffer_instrucciones, config, nuevo_pcb);
+		crear_header(proximo_pid, buffer_instrucciones, config, nuevo_pcb, estimacion_inicial);
 		char* string_pid = string_itoa(proximo_pid);
 
 		queue_push(cola_procesos_nuevos, (void*) nuevo_pcb);
@@ -170,10 +189,45 @@ void* funcion_pasar_a_ready(void* nada){
 
 
 void pasar_a_running(pcb* proceso_ready){
+	float tiempo_de_inicio = ((float)time(NULL)*1000); // cuando modifiquemos el pcb vamos a tener que guardar esta variable
 	t_buffer* pcb_serializado = malloc(sizeof(t_buffer));
 	pcb_serializado = serializar_header(proceso_ready); // por ahora aca, falta semaforos bien hechos cambiar para que no retorne nada a ver si se soluciona el error
 	empaquetar_y_enviar(pcb_serializado, conexion_CPU_dispatch, OPERACION_ENVIO_PCB);
 	//vamos a tener que hacer un free
+
+}
+
+
+void recibir_pcb_de_cpu( t_config* config, pcb* pcb_ejecutado){
+	void* buffer_instrucciones;
+	int codigo_de_paquete = recibir_operacion(conexion_CPU_dispatch);
+	switch(codigo_de_paquete) {
+	case 22:  //debaria ser el caso de recibir interupt
+		buffer_instrucciones = recibir_instrucciones(*conexion_CPU_dispatch);// recibir pcb funcion ya definida en cpu, hay que usar esa
+	}
+}
+
+
+
+
+
+void planificador_de_corto_plazo(){
+
+	pcb* ejecutado = malloc(sizeof(pcb));
+
+	uint32_t interrupt = 22;
+
+	send(conexion_cpu_interrupt, &interrupt, sizeof(uint32_t), 0);
+
+	//sabemos que vamos a recibir por parte de la cpu, el pcb que se estaba ejecutando, NO SIEMPRE
+
+	float tiempo_de_paro_por_interrupcion = ((float)time(NULL)*1000);
+	//restar el tiempo que hizo de lo estimado.
+
+	// en caso de que haya uno mas corto del que se estaba ejecutando, el mismo debera volver a ready;
+
+
+	//if(se fue antes, seguir sin tenerlo en cuenta
 
 }
 
@@ -187,11 +241,9 @@ pcb* algoritmo_srt(){
 
 	int pid_menor;
 
-	float cuenta_aux_1;
-	float cuenta_aux_2;
-
 	pcb* auxiliar1 = malloc(sizeof(pcb));
 	pcb* auxiliar2 = malloc(sizeof(pcb));
+
 
 	sem_wait(mutex_cola_ready);
 	tamanio = queue_size(cola_de_ready);
@@ -202,16 +254,12 @@ pcb* algoritmo_srt(){
 
 	queue_push(aux, (void*) auxiliar1);
 
-	//hacer cuenta auux 1 = cuenta_aux_1
-
 	while(iterador < tamanio){
 		iterador++;
 		auxiliar2 = queue_pop(cola_de_ready);
 		queue_push(aux, (void*) auxiliar2);
 
-		//hacer cuenta auux 2 = cuenta_aux_2
-
-		if(cuenta_aux_1 <= cuenta_aux_2){
+		if(auxiliar1->estimacion_siguiente <= auxiliar2->estimacion_siguiente){
 			pid_menor = auxiliar1->pid;
 		}
 		else {
@@ -245,7 +293,7 @@ pcb* algoritmo_srt(){
 			}
 		}
 
-
+		return auxiliar1;
 
 }
 
