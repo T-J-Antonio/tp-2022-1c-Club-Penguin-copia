@@ -34,10 +34,6 @@ int main(){
 		return NULL;
 	}
 
-	//escucharinterr{
-	//esperarcliente -> esperar a que me llegue la int
-	//ahora hay interrupciones (modificar una variable global)
-
 	pthread_create(&socket_escucha_dispatch, NULL, _f_aux_escucha_kernel, (void*) &socket_cpu_escucha);
 	pthread_join(socket_escucha_dispatch, NULL);
 
@@ -47,34 +43,37 @@ int main(){
 }
 
 void* escuchar_interrupciones(int socket_escucha_interrupciones, t_config* config){
-	int cliente_fd = esperar_cliente(socket_escucha_interrupciones);
-	int codigo_de_paquete = recibir_operacion(cliente_fd);
-	switch(codigo_de_paquete) {
-	case OPERACION_ENVIO_INTERRUPCION:
-		sem_wait(mutex_interrupciones);
-		hay_interrupciones++;
-		sem_post(mutex_interrupciones);
-		break;
+	int cliente_fd = esperar_cliente(socket_escucha_interrupciones); // ¿va adentro o afuera del while?
+	while(1){
+		int codigo_de_paquete = recibir_operacion(cliente_fd);
+		switch(codigo_de_paquete) {
+		case OPERACION_ENVIO_INTERRUPT:
+			sem_wait(mutex_interrupciones);
+			hay_interrupciones++;
+			sem_post(mutex_interrupciones);
+			break;
+		}
 	}
 	return NULL;
 }
 
 
 void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
-	int cliente_fd = esperar_cliente(socket_escucha_dispatch);
-	//while(1)
-	int codigo_de_paquete = recibir_operacion(cliente_fd);
-	pcb* recibido = malloc(sizeof(pcb));
-	switch(codigo_de_paquete) {
-	case OPERACION_ENVIO_PCB:
-		recibir_pcb(cliente_fd, recibido);
-		imprimir_pcb(recibido);
-		for(int i = recibido->program_counter; i < list_size(recibido->instrucciones); i++){
-			ciclo_de_instruccion(recibido, config, socket_escucha_dispatch);
-			//if(instruccion == I/O)
-			//break;
+	int cliente_fd = esperar_cliente(socket_escucha_dispatch); // ¿va adentro o afuera del while?
+	while(1){ //permite escuchar instrucciones infinitamente en vez de una sola vez
+		int codigo_de_paquete = recibir_operacion(cliente_fd);
+		pcb* recibido = malloc(sizeof(pcb));
+		switch(codigo_de_paquete) {
+		case OPERACION_ENVIO_PCB:
+			recibir_pcb(cliente_fd, recibido);
+			for(int i = recibido->program_counter; i < list_size(recibido->instrucciones); i++){
+				ciclo_de_instruccion(recibido, config, socket_escucha_dispatch);
+				instruccion* ejecutada = list_get(recibido->instrucciones, recibido->program_counter - 1);
+				//si la instrucción que acabo de ejecutar es I_O o EXIT, no debo seguir el ciclo
+				if(ejecutada->cod_op == I_O || ejecutada->cod_op == EXIT) break;
+			}
+			break;
 		}
-		break;
 	}
 	return NULL;
 }
@@ -106,10 +105,9 @@ void ciclo_de_instruccion(pcb* en_ejecucion, t_config* config, int socket_escuch
 	case I_O:
 		++(en_ejecucion->program_counter);
 		tiempo_bloqueo = a_ejecutar->parametros[0];
-		//se envía PID + tiempo de bloqueo para indicar bloqueo (y sí)
-		pcb_actualizado = serializar_pcb_actualizado(en_ejecucion->pid, tiempo_bloqueo);
-		send(socket_escucha_dispatch, pcb_actualizado, 2*sizeof(uint32_t), 0);
-		return;
+		pcb_actualizado = serializar_header(en_ejecucion);
+		empaquetar_y_enviar_i_o(pcb_actualizado, socket_escucha_dispatch, OPERACION_EXIT, tiempo_bloqueo);
+		break;
 
 	case READ:
 		//próximamente
@@ -122,23 +120,22 @@ void ciclo_de_instruccion(pcb* en_ejecucion, t_config* config, int socket_escuch
 		break;
 
 	case EXIT:
-		//se envía PID + 0 para indicar finalización
-		pcb_actualizado = serializar_pcb_actualizado(en_ejecucion->pid, PROCESO_FINALIZADO);
-		send(socket_escucha_dispatch, pcb_actualizado, 2*sizeof(uint32_t), 0);
-		return;
+		++(en_ejecucion->program_counter);
+		pcb_actualizado = serializar_header(en_ejecucion);
+		empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, OPERACION_EXIT);
+		break;
 	}
 
 	//check interrupt
 	sem_wait(mutex_interrupciones);
 	if(hay_interrupciones){
-		pcb_actualizado = serializar_pcb_actualizado(en_ejecucion->pid, PROCESO_INTERRUMPIDO);
-		send(socket_escucha_dispatch, pcb_actualizado, 2*sizeof(uint32_t), 0);
+		pcb_actualizado = serializar_header(en_ejecucion);
+		if(cod_op == I_O || cod_op == EXIT)
+			empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, CPU_LIBRE);
+		else
+			empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, OPERACION_INTERRUPT);
 		hay_interrupciones--;
 	}
 	sem_post(mutex_interrupciones);
 
 }
-
-
-
-

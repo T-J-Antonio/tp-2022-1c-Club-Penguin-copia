@@ -13,10 +13,11 @@
 
 #define OPERACION_ENVIO_INSTRUCCIONES 0
 #define OPERACION_ENVIO_PCB 1
-#define OPERACION_ENVIO_INTERRUPCION 2
-
-#define PROCESO_FINALIZADO 0
-#define PROCESO_INTERRUMPIDO -1
+#define OPERACION_IO 2
+#define OPERACION_EXIT 3
+#define CPU_LIBRE 4
+#define OPERACION_INTERRUPT 5
+#define OPERACION_ENVIO_INTERRUPT 6
 
 t_log* logger;
 
@@ -26,6 +27,7 @@ typedef struct
 	uint32_t tam_param;
 	uint32_t *parametros;
 } instruccion;
+
 typedef struct
 {
 	uint32_t size;
@@ -40,19 +42,24 @@ typedef struct
 
 typedef struct
 {
+	uint32_t codigo_operacion_de_paquete;
+	uint32_t tiempo_bloqueo;
+	t_buffer* buffer;
+} t_paquete_i_o;
+
+typedef struct
+{
 	uint32_t pid;
 	uint32_t tamanio_en_memoria;
 	t_list* instrucciones;
 	uint32_t program_counter;
 	uint32_t tamanio_paginas;
 	void* tabla_paginas; //el tipo de dato se va a definir cuando hagamos la memoria
-	float estimacion_siguiente; // pendiente de cambio por temas de serializacion
+	float estimacion_siguiente;
+	float timestamp_inicio_exe;
+	float real_actual;
+	int socket_consola;
 } pcb;
-
-typedef struct {
-	uint32_t pid;
-	uint32_t resultado;
-} pcb_actualizado;
 
 enum operaciones
 {
@@ -81,8 +88,14 @@ void* recibir_buffer(int*, int);
 void* recibir_instrucciones(int);
 pcb* crear_header(uint32_t, uint32_t, t_list*, t_config*);
 void empaquetar_y_enviar(t_buffer*, int, uint32_t);
+
+//Función similar a la anterior pero sirve para mandar con tiempo de bloqueo
+void empaquetar_y_enviar_i_o(t_buffer*, int, uint32_t, uint32_t);
 void imprimir_pcb(pcb* );
 void imprimir_instruccion(void * );
 void recibir_pcb(int , pcb* );
-void* serializar_pcb_actualizado(uint32_t, int32_t);
+//Dada una instrucción, la añade al buffer parte por parte y retorna el offset generado por esta adición
+uint32_t serializar_instruccion(t_buffer*, instruccion*, uint32_t);
 
+//Dada una lista de instrucciones, construye un buffer con ellas y lo retorna
+t_buffer * serializar_instrucciones(t_list *, uint32_t);
