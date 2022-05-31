@@ -247,7 +247,7 @@ void* recibir_pcb_de_cpu( t_config* config, pcb* pcb_ejecutado){
 	float io[2];
 	uint32_t aux;
 	int semaforo;
-	while(1){								// eran 4 posible escenarios cuando recibiamos la PCB del CPU 
+	while(1){								
 		switch(codigo_de_paquete) {
 
 		case OPERACION_IO:  //debaria ser el caso de recibir interupt
@@ -269,12 +269,12 @@ void* recibir_pcb_de_cpu( t_config* config, pcb* pcb_ejecutado){
 			sem_post(mutex_cola_suspendido);
 			sem_post(signal_a_io);
 
-			if(!semaforo){//que significaba el !semaforo
+			if(!semaforo){
 				planificador_de_corto_plazo();
 			}
 			break;
 
-			case OPERACION_EXIT:								//que diferencia habia entre exit y CPU_LIBRE
+			case OPERACION_EXIT:								
 			sem_getvalue(actualmente_replanificando, &semaforo);
 
 			recibir_pcb(conexion_CPU_dispatch, proceso_recibido);
