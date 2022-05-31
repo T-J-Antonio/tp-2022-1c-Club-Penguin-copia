@@ -289,7 +289,7 @@ void* recibir_pcb_de_cpu( t_config* config, pcb* pcb_ejecutado){
 	float io[2];
 	uint32_t aux;
 	int semaforo;
-	while(1){
+	while(1){								
 		switch(codigo_de_paquete) {
 
 		case OPERACION_IO:
