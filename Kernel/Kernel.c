@@ -9,14 +9,18 @@ float alfa;
 
 int flag_respuesta_a_interupcion;
 int conexion_cpu_interrupt;
-int tiempo_de_espera_max;
+float tiempo_de_espera_max;
 pcb* ejecutado;
 float tiempo_inicio;
-
+int int_modo_planificacion;
 
 pcb* algoritmo_srt();
+
+
 int main(void) {
 	pid_handler = dictionary_create();
+
+	process_state = dictionary_create();
 
 	sem_init(mutex_cola_new, 0, 1);
 
@@ -27,8 +31,6 @@ int main(void) {
 	sem_init(contador_de_listas_esperando_para_estar_en_ready, 0, 0);
 
 	sem_init(binario_flag_interrupt, 0, 0);
-
-	sem_init(actualmente_replanificando, 0, 0);
 
 	sem_init(mutex_cola_suspendido, 0, 1);
 
@@ -48,9 +50,12 @@ int main(void) {
 
 	char* ip_CPU = config_get_string_value(config, "IP_CPU");
 	char* puerto_CPU = config_get_string_value(config, "PUERTO_CPU_DISPATCH");
+	char* modo_de_planificacion = config_get_string_value(config, "ALGORITMO_PLANIFICACION");
 
+	if(strcmp(modo_de_planificacion, "FIFO") ==0)int_modo_planificacion = 21;
+	if(strcmp(modo_de_planificacion, "SRT") ==0)int_modo_planificacion = 22;
 
-	tiempo_de_espera_max = config_get_int_value(config, "TIEMPO_MAXIMO_BLOQUEADO");
+	tiempo_de_espera_max = (float) config_get_int_value(config, "TIEMPO_MAXIMO_BLOQUEADO");
 
 
 	int grado_de_multiprogramacion = config_get_int_value(config, "GRADO_MULTIPROGRAMACION");
@@ -77,9 +82,6 @@ int main(void) {
 
 	pthread_t socket_escucha_consola;
 	pthread_create(&socket_escucha_consola, NULL, _f_aux_escucha_consola, (void*) &socket_kernel_escucha );
-
-
-
 
 	pthread_t pasar_a_ready;
 	pthread_create(&pasar_a_ready, NULL, funcion_pasar_a_ready, NULL );
@@ -205,17 +207,53 @@ void* funcion_pasar_a_ready(void* nada){
 void pasar_a_running(pcb* proceso_ready){
 	float tiempo_de_inicio = ((float)time(NULL)*1000); // cuando modifiquemos el pcb vamos a tener que guardar esta variable
 	t_buffer* pcb_serializado = malloc(sizeof(t_buffer));
-	pcb_serializado = serializar_header(proceso_ready); // por ahora aca, falta semaforos bien hechos cambiar para que no retorne nada a ver si se soluciona el error
+	pcb_serializado = serializar_header(proceso_ready);
 	empaquetar_y_enviar(pcb_serializado, conexion_CPU_dispatch, OPERACION_ENVIO_PCB);
 	//vamos a tener que hacer un free
 
 }
 
+void realizar_io(pcb* proceso){
+	float aux [2];
+	char* string_pid = string_itoa(proceso->pid);
+	aux = (float*) dictionary_get(pid_handler, string_pid);
+	char* estado = (char*) dictionary_get(process_state, string_pid);
+	float timestamp_aux = ((float)time(NULL))*1000;
+	if(strcmp(estado, "blocked")==0){
+		float cupo_restante = tiempo_de_espera_max - (timestamp_aux - aux[1]);
+		if(cupo_restante < aux[0]){
+			usleep(cupo_restante);
+			//aca tmb falta mutex
+			queue_push(cola_de_ready, proceso);
+			//ir a ready
 
+		}else{
+			usleep(cupo_restante);
+			dictionary_put(process_state, string_pid, "suspended blocked");
+			sem_post(sem_contador_multiprogramacion);
+			usleep(aux[0]- cupo_restante);
+			dictionary_put(process_state, string_pid, "suspended ready");
+			//se que falta el mutex va para dsp
+			queue_push(cola_procesos_sus_ready, proceso);
+			//pasar a sus ready
+			//NOTA IMPORTANTE AGREGAR SEMAFOROS A TODOS LOS DICCIONARIOS TMB!!!!!
+		}
+
+
+	}else {
+		usleep(aux[0]);
+		dictionary_put(process_state, string_pid, "suspended ready");
+		//se que falta el mutex va para dsp
+		queue_push(cola_procesos_sus_ready, proceso);
+		//pasar a sus ready
+	} //hacer espera
+
+	sem_post(dispositivo_de_io);//libero el disp de io
+}
 
 void* dispositivo_io(){
 	int cantidad_en_io;
-	sem_getvalue(actualmente_replanificando, &cantidad_en_io);
+	sem_getvalue(signal_a_io, &cantidad_en_io);
 	if(cantidad_en_io){
 		sem_wait(mutex_cola_suspendido);
 		if(sem_trywait(dispositivo_de_io) == 0){
@@ -230,7 +268,11 @@ void* dispositivo_io(){
 			pcb* proceso_sus = queue_pop(cola_de_io);
 			char* string_pid = string_itoa(proceso_sus->pid);
 			float io[2] = (float*) dictionary_get(pid_handler, string_pid );
-			if((tiempo_actual - io[1]) > tiempo_de_espera_max) sem_post(sem_contador_multiprogramacion); //aparte mandar un msg que no conocemos a memoria
+			if((tiempo_actual - io[1]) > tiempo_de_espera_max) {
+				sem_post(sem_contador_multiprogramacion); //aparte mandar un msg que no conocemos a memoria
+				char* string_pid = string_itoa(proceso_sus->pid);
+				dictionary_put(process_state, string_pid, "suspended blocked");
+			}
 			queue_push(cola_de_io, (void*) proceso_sus);
 		}
 		sem_post(mutex_cola_suspendido);
@@ -250,9 +292,9 @@ void* recibir_pcb_de_cpu( t_config* config, pcb* pcb_ejecutado){
 	while(1){
 		switch(codigo_de_paquete) {
 
-		case OPERACION_IO:  //debaria ser el caso de recibir interupt
+		case OPERACION_IO:
+			// luego de modificar el pcb hay que calcular el srt para el pcb
 
-			sem_getvalue(actualmente_replanificando, &semaforo);
 			recv(conexion_CPU_dispatch, &aux, sizeof(uint32_t), MSG_WAITALL);
 
 			recibir_pcb(conexion_CPU_dispatch, proceso_recibido);
@@ -267,15 +309,13 @@ void* recibir_pcb_de_cpu( t_config* config, pcb* pcb_ejecutado){
 			queue_push(cola_de_io, proceso_recibido);
 
 			sem_post(mutex_cola_suspendido);
-			sem_post(signal_a_io);
 
-			if(!semaforo){
-				planificador_de_corto_plazo();
-			}
+			dictionary_put(process_state, string_pid, "blocked");
+
+			sem_post(signal_a_io);
 			break;
 
 		case OPERACION_EXIT:
-			sem_getvalue(actualmente_replanificando, &semaforo);
 
 			recibir_pcb(conexion_CPU_dispatch, proceso_recibido);
 
@@ -284,17 +324,13 @@ void* recibir_pcb_de_cpu( t_config* config, pcb* pcb_ejecutado){
 			//sendv(proceso_recibido->socket, 1, int, 0); aviso a la consola que termino su proceso
 
 			sem_post(sem_contador_multiprogramacion);
-
-
-
-			if(!semaforo){
-				planificador_de_corto_plazo();
-			}
 			break;
 
 		case OPERACION_INTERRUPT:
 			ejecutado = malloc(sizeof(pcb));
 			recibir_pcb(conexion_CPU_dispatch, ejecutado);
+
+			ejecutado->estimacion_siguiente = ((float)time(NULL)*1000) - ejecutado->estimacion_siguiente; //son detalles
 
 			flag_respuesta_a_interupcion = 1;
 			sem_post(binario_flag_interrupt);
@@ -320,31 +356,45 @@ void* recibir_pcb_de_cpu( t_config* config, pcb* pcb_ejecutado){
 
 void planificador_de_corto_plazo(){
 
-	sem_post(actualmente_replanificando);
-
 	uint32_t interrupt = 22;
 	flag_respuesta_a_interupcion =0;
 
-	send(conexion_cpu_interrupt, &interrupt, sizeof(uint32_t), 0);
-	sem_wait(binario_flag_interrupt);
-	switch(flag_respuesta_a_interupcion){
+
+	if (int_modo_planificacion == SRT){
+		send(conexion_cpu_interrupt, &interrupt, sizeof(uint32_t), 0);
+		sem_wait(binario_flag_interrupt);
+		pcb* candidato_del_stack;
+		switch(flag_respuesta_a_interupcion){
+			case 1:{
+				candidato_del_stack = algoritmo_srt();
+				if(ejecutado->estimacion_siguiente <= candidato_del_stack){
+					pasar_a_running(ejecutado);
+					sem_wait(mutex_cola_ready);
+					queue_push(cola_de_ready, candidato_del_stack);
+					sem_post(mutex_cola_ready);
+				}
+				else{pasar_a_running(candidato_del_stack);
+				sem_wait(mutex_cola_ready);
+				queue_push(cola_de_ready, ejecutado);
+				sem_post(mutex_cola_ready);
+				}
+
+				break;
+				}
+			case 2:{
+				candidato_del_stack = algoritmo_srt();
+				pasar_a_running(candidato_del_stack);
+				break;
+				}
+			}
 
 
+	}else if (int_modo_planificacion == FIFO){
+		sem_wait(mutex_cola_ready);
+		pcb* proceso_a_ejecutar = (pcb*) queue_pop(cola_de_ready);
+		sem_post(mutex_cola_ready);
+		pasar_a_running(proceso_a_ejecutar);
 	}
-
-	//sabemos que vamos a recibir por parte de la cpu, el pcb que se estaba ejecutando, NO SIEMPRE
-
-	float tiempo_de_paro_por_interrupcion = ((float)time(NULL)*1000);
-	//restar el tiempo que hizo de lo estimado.
-
-	// en caso de que haya uno mas corto del que se estaba ejecutando, el mismo debera volver a ready;
-
-
-	//if(se fue antes, seguir sin tenerlo en cuenta
-
-	//al final
-
-	sem_wait(actualmente_replanificando);
 }
 
 

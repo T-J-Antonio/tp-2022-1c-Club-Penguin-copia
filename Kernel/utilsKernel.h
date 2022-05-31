@@ -22,6 +22,8 @@
 #define CPU_LIBRE 4
 #define OPERACION_INTERRUPT 5
 
+#define SRT 22
+#define FIFO 21
 
 t_log* logger;
 
@@ -51,7 +53,10 @@ typedef struct
 	uint32_t program_counter;
 	uint32_t tamanio_paginas;
 	void* tabla_paginas; //el tipo de dato se va a definir cuando hagamos la memoria
-	float estimacion_siguiente; // pendiente de cambio por temas de serializacion a dos uints
+	float estimacion_siguiente;
+	float timestamp_inicio_exe;
+	float real_actual;
+	int socket_consola;
 } pcb;
 
 
@@ -87,6 +92,8 @@ t_queue* cola_de_ready;
 t_queue* cola_de_io;
 
 t_dictionary* pid_handler;
+
+t_dictionary* process_state;
 
 int conexion_CPU_dispatch;
 
