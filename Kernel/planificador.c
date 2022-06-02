@@ -291,6 +291,7 @@ void planificador_de_corto_plazo(){
 			case 2:{			//caso en el que la cpu esta vacia y no nos da nada
 				candidato_del_stack = algoritmo_srt();
 				pasar_a_running(candidato_del_stack);
+				remover_de_cola_ready(candidato_del_stack);
 				break;
 				}
 			}
