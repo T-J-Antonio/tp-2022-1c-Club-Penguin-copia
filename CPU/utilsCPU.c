@@ -215,7 +215,7 @@ void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
 		list_add(instrucciones, ins_recibida);
 	}
 
-	pcb_recibido->instrucciones = instrucciones; // podemos cambiar la def de pcb dentro del cpu para no tener que castear a void, en realidad seria mas logico usar queue asi usamos pop y borra la ins usada
+	pcb_recibido->instrucciones = instrucciones;
 
 	offset += offset_instrucciones;
 
@@ -323,7 +323,13 @@ void* serializar_header(pcb* header){
 	memcpy(buffer->stream + offset, &header->estimacion_siguiente, sizeof(float));
 	offset += sizeof(float);
 
-	//serializar los otros 3 campos que lo manda Lau
+	memcpy(buffer->stream + offset, &header->timestamp_inicio_exe, sizeof(float));
+	offset += sizeof(float);
+
+	memcpy(buffer->stream + offset, &header->real_actual, sizeof(float));
+	offset += sizeof(float);
+
+	memcpy(buffer->stream + offset, &header->socket_consola, sizeof(int));
 
 	return buffer;
 
