@@ -22,6 +22,8 @@
 #define CPU_LIBRE 4
 #define OPERACION_INTERRUPT 5
 
+#define PROCESO_FINALIZADO 101
+
 #define SRT 22
 #define FIFO 21
 
@@ -98,6 +100,19 @@ t_dictionary* process_state;
 int conexion_CPU_dispatch;
 
 
+uint32_t proximo_pid;
+uint32_t resultOk;
+
+float estimacion_inicial;
+float alfa;
+
+int flag_respuesta_a_interupcion;
+int conexion_cpu_interrupt;
+float tiempo_de_espera_max;
+pcb* ejecutado;
+float tiempo_inicio;
+int int_modo_planificacion;
+
 
 
 //FUNCIONES TRAÍDAS DEL TP0
@@ -118,9 +133,4 @@ void* recibir_instrucciones(int);
 void crear_header(uint32_t, void*, t_config*, pcb*, float);
 void empaquetar_y_enviar(t_buffer*, int, uint32_t);
 
-
-void* recibiendo(void* , t_config*);
-void* funcion_pasar_a_ready(void*);
-void pasar_a_running(pcb*);
-void* escuchar_consola(int , t_config*);
 void recibir_pcb(int , pcb* );
