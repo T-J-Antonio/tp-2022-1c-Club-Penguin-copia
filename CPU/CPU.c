@@ -1,10 +1,10 @@
-#include"utilsCPU.h"
+#include "utilsCPU.h"
+int hay_interrupciones = 0;
+sem_t* mutex_interrupciones;
 
-
-void* escuchar_kernel(int , t_config*);
-void imprimir_pcb(pcb* );
-void imprimir_instruccion(void * );
-void recibir_pcb(int , pcb* );
+void* escuchar_kernel(int, t_config*);
+void* escuchar_interrupciones(int, t_config*);
+void ciclo_de_instruccion(pcb*, t_config*, int);
 
 int main(){
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/CPU/CPU.config");
@@ -13,115 +13,129 @@ int main(){
 
 	char* ip_cpu = config_get_string_value(config, "IP_CPU");
 	char* puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA_DISPATCH");
+	char* puerto_escucha_interrupt = config_get_string_value(config, "PUERTO_ESCUCHA_INTERRUPT");
+
 	int socket_cpu_escucha = iniciar_servidor(ip_cpu, puerto_escucha);//ip kernel unica, pero el puerto es el del escucha,
+	int socket_cpu_interrupt = iniciar_servidor(ip_cpu, puerto_escucha_interrupt);
 
 	log_info(logger, "CPU listo para recibir al pebete");
 	pthread_t socket_escucha_dispatch;
+	pthread_t socket_escucha_interrupt;
+
+	sem_init(mutex_interrupciones, 0, 1);
 
 	void* _f_aux_escucha_kernel(void *socket_cpu_escucha){
 		escuchar_kernel(*(int*)socket_cpu_escucha, config);
 		return NULL;
 	}
-	int thread = pthread_create(&socket_escucha_dispatch, NULL, _f_aux_escucha_kernel, (void*) &socket_cpu_escucha );
 
+	void* _f_aux_escucha_interrupt(void* socket_cpu_interrupt){
+		escuchar_interrupciones(*(int*)socket_cpu_interrupt, config);
+		return NULL;
+	}
+
+	pthread_create(&socket_escucha_dispatch, NULL, _f_aux_escucha_kernel, (void*) &socket_cpu_escucha);
 	pthread_join(socket_escucha_dispatch, NULL);
+
+	pthread_create(&socket_escucha_interrupt, NULL, _f_aux_escucha_interrupt, (void*) &socket_cpu_interrupt);
+	pthread_join(socket_escucha_interrupt, NULL);
 	return 0;
 }
 
-
-void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
-	int size;
-	uint32_t offset = 0;
-	uint32_t offset_instrucciones = 0;
-	void * buffer;
-	t_list* instrucciones = list_create();
-
-	buffer = recibir_buffer(&size, socket_cliente); // almacena en size el tamanio de todo el buffer y ademas guarda en buffer todo el stream
-	memcpy(&pcb_recibido->pid, buffer, sizeof(uint32_t));
-	offset+=sizeof(uint32_t);
-
-	memcpy(&pcb_recibido->tamanio_en_memoria, buffer + offset, sizeof(uint32_t));
-	offset+=sizeof(uint32_t);
-
-	memcpy(&pcb_recibido->tamanio_stream_instrucciones, buffer + offset, sizeof(uint32_t));
-	offset+=sizeof(uint32_t);
-
-	while(offset_instrucciones < pcb_recibido->tamanio_stream_instrucciones){
-		instruccion *ins_recibida = malloc(sizeof(instruccion));
-		ins_recibida->parametros = NULL;
-		memcpy(&ins_recibida->cod_op, buffer + offset + offset_instrucciones, sizeof(uint32_t));
-		offset_instrucciones+=sizeof(uint32_t);
-		memcpy(&ins_recibida->tam_param, buffer + offset + offset_instrucciones, sizeof(uint32_t));
-		offset_instrucciones+=sizeof(uint32_t);
-
-
-		//lista de parametros
-		if(ins_recibida->tam_param){
-			ins_recibida->parametros = malloc(ins_recibida->tam_param);
-			memcpy(ins_recibida->parametros, buffer + offset + offset_instrucciones, ins_recibida->tam_param);
-			offset_instrucciones+=ins_recibida->tam_param;
+void* escuchar_interrupciones(int socket_escucha_interrupciones, t_config* config){
+	int cliente_fd = esperar_cliente(socket_escucha_interrupciones); // ¿va adentro o afuera del while?
+	while(1){
+		int codigo_de_paquete = recibir_operacion(cliente_fd);
+		switch(codigo_de_paquete) {
+		case OPERACION_ENVIO_INTERRUPT:
+			sem_wait(mutex_interrupciones);
+			hay_interrupciones++;
+			sem_post(mutex_interrupciones);
+			break;
 		}
-
-		list_add(instrucciones, ins_recibida);
 	}
-
-	pcb_recibido->instrucciones = (void *) instrucciones; // podemos cambiar la def de pcb dentro del cpu para no tener que castear a void, en realidad seria mas logico usar queue asi usamos pop y borra la ins usada
-
-	offset += offset_instrucciones;
-
-	memcpy(&pcb_recibido->program_counter, buffer + offset, sizeof(uint32_t));
-	offset+=sizeof(uint32_t);
-
-	memcpy(&pcb_recibido->tamanio_paginas, buffer + offset, sizeof(uint32_t));
-	offset+=sizeof(uint32_t);
-
-	memcpy(pcb_recibido->tabla_paginas, buffer + offset, pcb_recibido->tamanio_paginas);
-	offset+=pcb_recibido->tamanio_paginas;
-
-	memcpy(&pcb_recibido->estimacion_siguiente, buffer + offset, sizeof(float));
-	offset+=sizeof(float);
-
-	free(buffer);
-
+	return NULL;
 }
-
-void imprimir_instruccion(void * var){
-	instruccion *alo = (instruccion *) var;
-
-	printf("codigo de operacion: %d\n", alo->cod_op);
-	uint32_t i = 0;
-	uint32_t cant = alo->tam_param/sizeof(uint32_t);
-
-	while(i<cant){
-		printf("parametro: %d\n", alo->parametros[i]);
-		i++;
-	}
-}
-
-
-
-void imprimir_pcb(pcb* recepcion){
-	printf("pid: %d\n", recepcion->pid);
-	printf("tamanio_en_memoria: %d\n", recepcion->tamanio_en_memoria);
-	printf("tamanio_stream_instrucciones: %d\n", recepcion->tamanio_stream_instrucciones);
-	list_iterate((t_list*)recepcion->instrucciones, imprimir_instruccion);
-	printf("program_counter: %d\n", recepcion->program_counter);
-	printf("tamanio_paginas: %d\n", recepcion->tamanio_paginas);
-	printf("estimacion_siguiente: %f\n", recepcion->estimacion_siguiente);
-
-}
-
-
 
 
 void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
-	int cliente_fd = esperar_cliente(socket_escucha_dispatch);
-	int codigo_de_paquete = recibir_operacion(cliente_fd);
-	pcb* recepcion = malloc(sizeof(pcb));
+	int cliente_fd = esperar_cliente(socket_escucha_dispatch); // ¿va adentro o afuera del while?
+	while(1){ //permite escuchar instrucciones infinitamente en vez de una sola vez
+		int codigo_de_paquete = recibir_operacion(cliente_fd);
+		pcb* recibido = malloc(sizeof(pcb));
 		switch(codigo_de_paquete) {
 		case OPERACION_ENVIO_PCB:
-			recibir_pcb(cliente_fd, recepcion);
-			imprimir_pcb(recepcion);
+			recibir_pcb(cliente_fd, recibido);
+			for(int i = recibido->program_counter; i < list_size(recibido->instrucciones); i++){
+				ciclo_de_instruccion(recibido, config, socket_escucha_dispatch);
+				instruccion* ejecutada = list_get(recibido->instrucciones, recibido->program_counter - 1);
+				//si la instrucción que acabo de ejecutar es I_O o EXIT, no debo seguir el ciclo
+				if(ejecutada->cod_op == I_O || ejecutada->cod_op == EXIT) break;
+			}
+			break;
 		}
- return NULL;
+	}
+	return NULL;
+}
+
+
+void ciclo_de_instruccion(pcb* en_ejecucion, t_config* config, int socket_escucha_dispatch){
+	int tiempo_espera = config_get_int_value(config, "RETARDO_NOOP") / 1000;
+	int tiempo_bloqueo = 0;
+	t_buffer* pcb_actualizado = NULL;
+
+	//fetch
+	instruccion* a_ejecutar = list_get(en_ejecucion->instrucciones, en_ejecucion->program_counter);
+
+	//decode
+	int cod_op = a_ejecutar->cod_op;
+
+	//fetch operands
+	if(cod_op == COPY) {
+		//próximamente
+	}
+
+	//execute
+	switch(cod_op){
+	case NO_OP:
+		sleep(tiempo_espera);
+		++(en_ejecucion->program_counter);
+		break;
+
+	case I_O:
+		++(en_ejecucion->program_counter);
+		tiempo_bloqueo = a_ejecutar->parametros[0];
+		pcb_actualizado = serializar_header(en_ejecucion);
+		empaquetar_y_enviar_i_o(pcb_actualizado, socket_escucha_dispatch, OPERACION_EXIT, tiempo_bloqueo);
+		break;
+
+	case READ:
+		//próximamente
+		break;
+	case WRITE:
+		//próximamente
+		break;
+	case COPY:
+		//próximamente
+		break;
+
+	case EXIT:
+		++(en_ejecucion->program_counter);
+		pcb_actualizado = serializar_header(en_ejecucion);
+		empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, OPERACION_EXIT);
+		break;
+	}
+
+	//check interrupt
+	sem_wait(mutex_interrupciones);
+	if(hay_interrupciones){
+		pcb_actualizado = serializar_header(en_ejecucion);
+		if(cod_op == I_O || cod_op == EXIT)
+			empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, CPU_LIBRE);
+		else
+			empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, OPERACION_INTERRUPT);
+		hay_interrupciones--;
+	}
+	sem_post(mutex_interrupciones);
+
 }
