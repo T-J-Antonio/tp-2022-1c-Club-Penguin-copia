@@ -1,6 +1,6 @@
 #include "utilsCPU.h"
 int hay_interrupciones = 0;
-sem_t* mutex_interrupciones;
+sem_t mutex_interrupciones;
 
 void* escuchar_kernel(int, t_config*);
 void* escuchar_interrupciones(int, t_config*);
@@ -22,7 +22,7 @@ int main(){
 	pthread_t socket_escucha_dispatch;
 	pthread_t socket_escucha_interrupt;
 
-	sem_init(mutex_interrupciones, 0, 1);
+	sem_init(&mutex_interrupciones, 0, 1);
 
 	void* _f_aux_escucha_kernel(void *socket_cpu_escucha){
 		escuchar_kernel(*(int*)socket_cpu_escucha, config);
@@ -47,10 +47,10 @@ void* escuchar_interrupciones(int socket_escucha_interrupciones, t_config* confi
 	while(1){
 		int codigo_de_paquete = recibir_operacion(cliente_fd);
 		switch(codigo_de_paquete) {
-		case OPERACION_ENVIO_INTERRUPT:
-			sem_wait(mutex_interrupciones);
+		case OPERACION_INTERRUPT:
+			sem_wait(&mutex_interrupciones);
 			hay_interrupciones++;
-			sem_post(mutex_interrupciones);
+			sem_post(&mutex_interrupciones);
 			break;
 		}
 	}
@@ -67,7 +67,7 @@ void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
 		case OPERACION_ENVIO_PCB:
 			recibir_pcb(cliente_fd, recibido);
 			for(int i = recibido->program_counter; i < list_size(recibido->instrucciones); i++){
-				ciclo_de_instruccion(recibido, config, socket_escucha_dispatch);
+				ciclo_de_instruccion(recibido, config, cliente_fd);//aca cambio el cliente por socket ojo
 				instruccion* ejecutada = list_get(recibido->instrucciones, recibido->program_counter - 1);
 				//si la instrucción que acabo de ejecutar es I_O o EXIT, no debo seguir el ciclo
 				if(ejecutada->cod_op == I_O || ejecutada->cod_op == EXIT) break;
@@ -120,22 +120,25 @@ void ciclo_de_instruccion(pcb* en_ejecucion, t_config* config, int socket_escuch
 		break;
 
 	case EXIT:
+		printf("llegue al exit\n");
 		++(en_ejecucion->program_counter);
 		pcb_actualizado = serializar_header(en_ejecucion);
+		printf("actualice el header\n");
 		empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, OPERACION_EXIT);
+		printf("emp y env\n");
 		break;
 	}
 
 	//check interrupt
-	sem_wait(mutex_interrupciones);
+	sem_wait(&mutex_interrupciones);
 	if(hay_interrupciones){
 		pcb_actualizado = serializar_header(en_ejecucion);
 		if(cod_op == I_O || cod_op == EXIT)
 			empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, CPU_LIBRE);
 		else
-			empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, OPERACION_INTERRUPT);
+			empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, RESPUESTA_INTERRUPT);
 		hay_interrupciones--;
 	}
-	sem_post(mutex_interrupciones);
+	sem_post(&mutex_interrupciones);
 
 }

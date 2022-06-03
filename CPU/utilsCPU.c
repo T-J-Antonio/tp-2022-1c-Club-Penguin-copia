@@ -175,7 +175,7 @@ void empaquetar_y_enviar_i_o(t_buffer* buffer, int socket, uint32_t codigo_opera
 
 	// No nos olvidamos de liberar la memoria que ya no usaremos
 	free(a_enviar);
-	eliminar_paquete(paquete);
+	//eliminar_paquete(paquete);  hay que hacer un eliminarpaqueteio
 }
 
 void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
@@ -183,7 +183,6 @@ void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
 	uint32_t offset = 0;
 	uint32_t offset_instrucciones = 0;
 	void * buffer;
-	uint32_t tamanio_stream_instrucciones = 0; //creo variable para almacenar el tamaño (ya no lo tiene el pcb)
 	t_list* instrucciones = list_create();
 
 	buffer = recibir_buffer(&size, socket_cliente); // almacena en size el tamanio de todo el buffer y ademas guarda en buffer todo el stream
@@ -193,10 +192,10 @@ void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
 	memcpy(&pcb_recibido->tamanio_en_memoria, buffer + offset, sizeof(uint32_t));
 	offset+=sizeof(uint32_t);
 
-	memcpy(&tamanio_stream_instrucciones, buffer + offset, sizeof(uint32_t));
+	memcpy(&pcb_recibido->tamanio_stream_instrucciones, buffer + offset, sizeof(uint32_t));
 	offset+=sizeof(uint32_t);
 
-	while(offset_instrucciones < tamanio_stream_instrucciones){
+	while(offset_instrucciones < pcb_recibido->tamanio_stream_instrucciones){
 		instruccion *ins_recibida = malloc(sizeof(instruccion));
 		ins_recibida->parametros = NULL;
 		memcpy(&ins_recibida->cod_op, buffer + offset + offset_instrucciones, sizeof(uint32_t));
@@ -269,9 +268,9 @@ void imprimir_pcb(pcb* recepcion){
 }
 
 uint32_t serializar_instruccion(t_buffer* buffer, instruccion* instruccion, uint32_t offset){
-	buffer->size += sizeof(uint32_t) * 2 + instruccion->tam_param; // Parámetros
+	//buffer->size += sizeof(uint32_t) * 2 + instruccion->tam_param; // Parámetros
 	int cant = instruccion->tam_param/sizeof(uint32_t);
-	buffer->stream = (void *)realloc(buffer->stream, offset + (sizeof(uint32_t)*2) + instruccion->tam_param);
+	//buffer->stream = (void *)realloc(buffer->stream, offset + (sizeof(uint32_t)*2) + instruccion->tam_param);
 
 	memcpy(buffer->stream + offset, &instruccion->cod_op, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
@@ -286,12 +285,12 @@ uint32_t serializar_instruccion(t_buffer* buffer, instruccion* instruccion, uint
 	return offset;
 }
 
-void* serializar_header(pcb* header){
+t_buffer* serializar_header(pcb* header){
 	t_buffer* buffer = malloc(sizeof(t_buffer));
 	uint32_t offset = 0;
-	uint32_t buffer_size = 5*sizeof(uint32_t) + header->tamanio_paginas + sizeof(float);
+	uint32_t buffer_size = 6*sizeof(uint32_t) + header->tamanio_stream_instrucciones + header->tamanio_paginas + 3*sizeof(float);
 
-	buffer->size = buffer_size // Parámetros
+	buffer->size = buffer_size; // Parámetros
 
 	buffer->stream = malloc(buffer->size);
 
@@ -299,11 +298,9 @@ void* serializar_header(pcb* header){
 	offset += sizeof(uint32_t);
 	memcpy(buffer->stream + offset, &header->tamanio_en_memoria, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
-	//memcpy(buffer->stream + offset, &header->tamanio_stream_instrucciones, sizeof(uint32_t));
-	//offset += sizeof(uint32_t);
+	memcpy(buffer->stream + offset, &header->tamanio_stream_instrucciones, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
 
-	//memcpy(buffer->stream + offset, header->instrucciones, header->tamanio_stream_instrucciones);
-	//offset += header->tamanio_stream_instrucciones;
 
 	void _f_aux(void* instruccion_recibida){									// _f_aux recibe una instruccion de la lista de instrucciones (Mas abajo en el list_iterate) y envia a serializarla. Una vez que lo hace agrega al offset para desplazarse la cantidad de espacio que ocupo esa instruccion.
 		instruccion * ins = (instruccion *) instruccion_recibida;

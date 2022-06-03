@@ -1,20 +1,21 @@
 #include "planificador.h"
 
 int main(void) {
+	inicio = 1;
 	pid_handler = dictionary_create();
 	process_state = dictionary_create();
 
 	proximo_pid = 0;
 	resultOk = 0;
 
-	sem_init(mutex_cola_new, 0, 1);
-	sem_init(mutex_cola_sus_ready, 0, 1);
-	sem_init(mutex_cola_ready, 0, 1);
-	sem_init(contador_de_listas_esperando_para_estar_en_ready, 0, 0);
-	sem_init(binario_flag_interrupt, 0, 0);
-	sem_init(mutex_cola_suspendido, 0, 1);
-	sem_init(signal_a_io, 0, 0);
-	sem_init(dispositivo_de_io, 0, 1);
+	sem_init(&mutex_cola_new, 0, 1);
+	sem_init(&mutex_cola_sus_ready, 0, 1);
+	sem_init(&mutex_cola_ready, 0, 1);
+	sem_init(&contador_de_listas_esperando_para_estar_en_ready, 0, 0);
+	sem_init(&binario_flag_interrupt, 0, 0);
+	sem_init(&mutex_cola_suspendido, 0, 1);
+	sem_init(&signal_a_io, 0, 0);
+	sem_init(&dispositivo_de_io, 0, 1);
 
 
 	cola_procesos_nuevos = queue_create();
@@ -36,8 +37,8 @@ int main(void) {
 	tiempo_de_espera_max = (float) config_get_int_value(config, "TIEMPO_MAXIMO_BLOQUEADO");
 
 
-	int grado_de_multiprogramacion = config_get_int_value(config, "GRADO_MULTIPROGRAMACION");
-	sem_init(sem_contador_multiprogramacion, 0, grado_de_multiprogramacion);
+	uint grado_de_multiprogramacion = config_get_int_value(config, "GRADO_MULTIPROGRAMACION");
+	sem_init(&sem_contador_multiprogramacion, 0, grado_de_multiprogramacion);
 
 	char* ip_kernel = config_get_string_value(config, "IP_KERNEL");
 	char* puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
@@ -63,6 +64,7 @@ int main(void) {
 
 	pthread_t pasar_a_ready;
 	pthread_create(&pasar_a_ready, NULL, funcion_pasar_a_ready, NULL );
+
 
 	pthread_t recibir_procesos_por_cpu;
 	pthread_create(&recibir_procesos_por_cpu, NULL, recibir_pcb_de_cpu, NULL );

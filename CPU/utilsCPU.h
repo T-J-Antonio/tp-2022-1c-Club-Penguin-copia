@@ -17,7 +17,7 @@
 #define OPERACION_EXIT 3
 #define CPU_LIBRE 4
 #define OPERACION_INTERRUPT 5
-#define OPERACION_ENVIO_INTERRUPT 6
+#define RESPUESTA_INTERRUPT 6
 
 t_log* logger;
 
@@ -51,6 +51,7 @@ typedef struct
 {
 	uint32_t pid;
 	uint32_t tamanio_en_memoria;
+	uint32_t tamanio_stream_instrucciones;
 	t_list* instrucciones;
 	uint32_t program_counter;
 	uint32_t tamanio_paginas;
@@ -96,6 +97,6 @@ void imprimir_instruccion(void * );
 void recibir_pcb(int , pcb* );
 //Dada una instrucción, la añade al buffer parte por parte y retorna el offset generado por esta adición
 uint32_t serializar_instruccion(t_buffer*, instruccion*, uint32_t);
-
+t_buffer* serializar_header(pcb* );
 //Dada una lista de instrucciones, construye un buffer con ellas y lo retorna
 t_buffer * serializar_instrucciones(t_list *, uint32_t);

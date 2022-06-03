@@ -42,11 +42,13 @@ int esperar_cliente(int socket_servidor)
 	int socket_cliente = accept(socket_servidor, NULL, NULL);
 
 	recv(socket_cliente, &handshake, sizeof(uint32_t), MSG_WAITALL);
-	if(handshake ==1)
-		send(socket_cliente, &resultOk, sizeof(uint32_t), 0);
-	else
+	if(handshake ==1){
+		send(socket_cliente, &resultOk, sizeof(uint32_t), 0);}
+	else{
 		send(socket_cliente, &resultError, sizeof(uint32_t), 0); // cambiar NULL por 0
-	log_info(logger, "Se conecto un cliente!");
+	}
+	//log_info(logger, "Se conecto un cliente!");
+	printf("post log");
 
 	return socket_cliente;
 }
@@ -115,6 +117,9 @@ void crear_header(uint32_t proximo_pid, void* buffer_instrucciones, t_config* co
 	header->tamanio_paginas = 0;
 	header->tabla_paginas = NULL;
 	header->estimacion_siguiente = estimacion_inicial;
+	header->timestamp_inicio_exe = 0;
+	header->real_actual = 0;
+	header->socket_consola = 0;
 }
 
 
@@ -177,10 +182,10 @@ void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion
 t_buffer* serializar_header(pcb* header){
 	t_buffer* buffer = malloc(sizeof(t_buffer));
 	uint32_t offset = 0;
-	uint32_t buffer_size = 5*sizeof(uint32_t) + header->tamanio_stream_instrucciones + header->tamanio_paginas + sizeof(float);
+	uint32_t buffer_size = 6*sizeof(uint32_t) + header->tamanio_stream_instrucciones + header->tamanio_paginas + sizeof(float)*3 ;
 	buffer->size = 0;
 	buffer->size = buffer_size;
-
+	printf("dato: %d \n", header->tamanio_en_memoria);
 	buffer->stream = malloc(buffer->size);
 
 	memcpy(buffer->stream + offset, &header->pid, sizeof(uint32_t));
@@ -189,6 +194,8 @@ t_buffer* serializar_header(pcb* header){
 	offset += sizeof(uint32_t);
 	memcpy(buffer->stream + offset, &header->tamanio_stream_instrucciones, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
+
+	printf("tam str ins: %d", header->tamanio_stream_instrucciones);
 
 	memcpy(buffer->stream + offset, header->instrucciones, header->tamanio_stream_instrucciones);
 	offset += header->tamanio_stream_instrucciones;
@@ -204,6 +211,14 @@ t_buffer* serializar_header(pcb* header){
 	memcpy(buffer->stream + offset, &header->estimacion_siguiente, sizeof(float));
 	offset += sizeof(float);
 
+	memcpy(buffer->stream + offset, &header->timestamp_inicio_exe, sizeof(float));
+	offset += sizeof(float);
+
+	memcpy(buffer->stream + offset, &header->real_actual, sizeof(float));
+	offset += sizeof(float);
+
+	memcpy(buffer->stream + offset, &header->socket_consola, sizeof(int));
+
 	return buffer;
 
 }
@@ -211,9 +226,7 @@ t_buffer* serializar_header(pcb* header){
 void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
 	int size;
 	uint32_t offset = 0;
-	uint32_t offset_instrucciones = 0;
 	void * buffer;
-	t_list* instrucciones = list_create();
 
 	buffer = recibir_buffer(&size, socket_cliente); // almacena en size el tamanio de todo el buffer y ademas guarda en buffer todo el stream
 	memcpy(&pcb_recibido->pid, buffer, sizeof(uint32_t));
@@ -225,28 +238,10 @@ void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
 	memcpy(&pcb_recibido->tamanio_stream_instrucciones, buffer + offset, sizeof(uint32_t));
 	offset+=sizeof(uint32_t);
 
-	while(offset_instrucciones < pcb_recibido->tamanio_stream_instrucciones){
-		instruccion *ins_recibida = malloc(sizeof(instruccion));
-		ins_recibida->parametros = NULL;
-		memcpy(&ins_recibida->cod_op, buffer + offset + offset_instrucciones, sizeof(uint32_t));
-		offset_instrucciones+=sizeof(uint32_t);
-		memcpy(&ins_recibida->tam_param, buffer + offset + offset_instrucciones, sizeof(uint32_t));
-		offset_instrucciones+=sizeof(uint32_t);
+	pcb_recibido->instrucciones = malloc(pcb_recibido->tamanio_stream_instrucciones);
 
-
-		//lista de parametros
-		if(ins_recibida->tam_param){
-			ins_recibida->parametros = malloc(ins_recibida->tam_param);
-			memcpy(ins_recibida->parametros, buffer + offset + offset_instrucciones, ins_recibida->tam_param);
-			offset_instrucciones+=ins_recibida->tam_param;
-		}
-
-		list_add(instrucciones, ins_recibida);
-	}
-
-	pcb_recibido->instrucciones = (void *) instrucciones; // podemos cambiar la def de pcb dentro del cpu para no tener que castear a void, en realidad seria mas logico usar queue asi usamos pop y borra la ins usada
-
-	offset += offset_instrucciones;
+	memcpy(pcb_recibido->instrucciones, buffer + offset, pcb_recibido->tamanio_stream_instrucciones);
+	offset += pcb_recibido->tamanio_stream_instrucciones;
 
 	memcpy(&pcb_recibido->program_counter, buffer + offset, sizeof(uint32_t));
 	offset+=sizeof(uint32_t);
@@ -259,6 +254,14 @@ void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
 
 	memcpy(&pcb_recibido->estimacion_siguiente, buffer + offset, sizeof(float));
 	offset+=sizeof(float);
+
+	memcpy(&pcb_recibido->timestamp_inicio_exe, buffer + offset, sizeof(float));
+	offset+=sizeof(float);
+
+	memcpy(&pcb_recibido->real_actual, buffer + offset, sizeof(float));
+	offset+=sizeof(float);
+
+	memcpy(&pcb_recibido->socket_consola, buffer + offset, sizeof(int));
 
 	free(buffer);
 

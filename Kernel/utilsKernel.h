@@ -21,6 +21,7 @@
 #define OPERACION_EXIT 3
 #define CPU_LIBRE 4
 #define OPERACION_INTERRUPT 5
+#define RESPUESTA_INTERRUPT 6
 
 #define PROCESO_FINALIZADO 101
 
@@ -63,27 +64,27 @@ typedef struct
 
 
 
-sem_t* contador_de_listas_esperando_para_estar_en_ready; //indicar al plani largo cuando el grado de multiprogramacion decrece y puede poner uno en ready
+sem_t contador_de_listas_esperando_para_estar_en_ready; //indicar al plani largo cuando el grado de multiprogramacion decrece y puede poner uno en ready
 
-sem_t* sem_contador_multiprogramacion;
+sem_t sem_contador_multiprogramacion;
 
-sem_t* mutex_cola_ready; //mutex para trabajar sobre la lista de ready
+sem_t mutex_cola_ready; //mutex para trabajar sobre la lista de ready
 
-sem_t* mutex_grado_de_multiprogramacion; //mutex para trabajar sobre la varianle global "grado de multiprogramacion"
+sem_t mutex_grado_de_multiprogramacion; //mutex para trabajar sobre la varianle global "grado de multiprogramacion"
 
-sem_t* mutex_cola_new; //mutex para trabajar sobre la lista de new
+sem_t mutex_cola_new; //mutex para trabajar sobre la lista de new
 
-sem_t* mutex_cola_sus_ready;
+sem_t mutex_cola_sus_ready;
 
-sem_t* mutex_cola_suspendido;
+sem_t mutex_cola_suspendido;
 
-sem_t* binario_flag_interrupt;
+sem_t binario_flag_interrupt;
 
-sem_t* actualmente_replanificando;
+sem_t actualmente_replanificando;
 
-sem_t* signal_a_io;
+sem_t signal_a_io;
 
-sem_t* dispositivo_de_io;
+sem_t dispositivo_de_io;
 
 t_queue* cola_procesos_nuevos;
 
@@ -96,6 +97,8 @@ t_queue* cola_de_io;
 t_dictionary* pid_handler;
 
 t_dictionary* process_state;
+
+int inicio;
 
 int conexion_CPU_dispatch;
 
