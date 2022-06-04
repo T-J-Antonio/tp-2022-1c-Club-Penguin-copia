@@ -17,6 +17,7 @@ int main(void) {
 	sem_init(&signal_a_io, 0, 0);
 	sem_init(&dispositivo_de_io, 0, 1);
 	sem_init(&binario_lista_ready, 0, 0);
+	sem_init(&binario_plani_corto, 0, 0);
 
 
 	cola_procesos_nuevos = queue_create();
@@ -63,12 +64,15 @@ int main(void) {
 	pthread_t socket_escucha_consola;
 	pthread_create(&socket_escucha_consola, NULL, _f_aux_escucha_consola, (void*) &socket_kernel_escucha );
 
-	pthread_t pasar_a_ready;
+
 	pthread_create(&pasar_a_ready, NULL, funcion_pasar_a_ready, NULL );
 
 
 	pthread_t recibir_procesos_por_cpu;
 	pthread_create(&recibir_procesos_por_cpu, NULL, recibir_pcb_de_cpu, NULL );
+
+	pthread_t planificador_corto_plazo;
+	pthread_create(&planificador_corto_plazo, NULL, planificador_de_corto_plazo, NULL );
 
 
 	pthread_t gestionar_io;

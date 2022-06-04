@@ -1,6 +1,7 @@
 #include "utilsCPU.h"
 int hay_interrupciones = 0;
 int cliente_dispatch;
+uint32_t cpu_libre = 4;
 sem_t mutex_interrupciones;
 sem_t cpu_en_running;
 void* escuchar_kernel(int, t_config*);
@@ -41,17 +42,20 @@ int main(){
 
 	pthread_create(&socket_escucha_interrupt, NULL, _f_aux_escucha_interrupt, (void*) &socket_cpu_interrupt);
 	pthread_join(socket_escucha_dispatch, NULL);
-	pthread_join(socket_escucha_interrupt, NULL);
 	return 0;
 }
 
 void* escuchar_interrupciones(int socket_escucha_interrupciones, t_config* config){
 	int cliente_fd = esperar_cliente(socket_escucha_interrupciones); // ¿va adentro o afuera del while? afuera
 
-	uint32_t cpu_libre = 4;
+
 	while(1){
 		int estado_cpu = 0;
 		int codigo_de_paquete = recibir_operacion(cliente_fd);
+		if (codigo_de_paquete ==-1){
+			printf("se cayo el socket\n");
+			return NULL;
+		}
 		sem_wait(&mutex_interrupciones);
 		printf("llego int\n");
 		sem_getvalue(&cpu_en_running, &estado_cpu);
@@ -61,7 +65,8 @@ void* escuchar_interrupciones(int socket_escucha_interrupciones, t_config* confi
 			printf("espere el semaforo\n");
 			if(!estado_cpu){
 				printf("lugar deseado\n");
-				send(cliente_dispatch, &cpu_libre, sizeof(uint32_t), MSG_NOSIGNAL);
+				int cant = send(cliente_dispatch, &cpu_libre, sizeof(uint32_t), 0);
+				printf("cantidad int: %d",cant);
 				printf("hice el send");
 			}else{
 				printf("lugar no deseado\n");
@@ -78,7 +83,12 @@ void* escuchar_interrupciones(int socket_escucha_interrupciones, t_config* confi
 void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
 	int cliente_fd = socket_escucha_dispatch; // ¿va adentro o afuera del while?
 	while(1){ //permite escuchar instrucciones infinitamente en vez de una sola vez
+
 		int codigo_de_paquete = recibir_operacion(cliente_fd);
+		if(codigo_de_paquete == -1){
+			printf("se cayo el socket dispatch\n");
+			return NULL;
+		}
 		sem_post(&cpu_en_running);
 		pcb* recibido = malloc(sizeof(pcb));
 		switch(codigo_de_paquete) {
@@ -89,8 +99,8 @@ void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
 				instruccion* ejecutada = list_get(recibido->instrucciones, recibido->program_counter - 1);
 				//si la instrucción que acabo de ejecutar es I_O o EXIT, no debo seguir el ciclo
 				if(ejecutada->cod_op == I_O || ejecutada->cod_op == EXIT){
+					free(recibido);
 					sem_wait(&cpu_en_running);
-					printf("hice el wait del runnniong\n");
 					break;
 				}
 			}
@@ -129,6 +139,8 @@ void ciclo_de_instruccion(pcb* en_ejecucion, t_config* config, int socket_escuch
 		tiempo_bloqueo = a_ejecutar->parametros[0];
 		pcb_actualizado = serializar_header(en_ejecucion);
 		empaquetar_y_enviar_i_o(pcb_actualizado, socket_escucha_dispatch, OPERACION_IO, tiempo_bloqueo);
+		free(pcb_actualizado);
+
 		break;
 
 	case READ:
@@ -145,17 +157,21 @@ void ciclo_de_instruccion(pcb* en_ejecucion, t_config* config, int socket_escuch
 		++(en_ejecucion->program_counter);
 		pcb_actualizado = serializar_header(en_ejecucion);
 		empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, OPERACION_EXIT);
+		free(pcb_actualizado);
 		break;
 	}
 
 	//check interrupt
 	sem_wait(&mutex_interrupciones);
 	if(hay_interrupciones){
-		pcb_actualizado = serializar_header(en_ejecucion);
+
 		if(cod_op == I_O || cod_op == EXIT)
-			empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, CPU_LIBRE);
-		else
+			send(socket_escucha_dispatch, &cpu_libre, sizeof(uint32_t), 0);
+		else{
+			pcb_actualizado = serializar_header(en_ejecucion);
 			empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, RESPUESTA_INTERRUPT);
+			free(pcb_actualizado);
+		}
 		hay_interrupciones--;
 	}
 	printf("hice el post del mutex\n");

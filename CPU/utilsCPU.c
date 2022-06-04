@@ -143,6 +143,7 @@ void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion
 	offset += sizeof(uint32_t);
 	memcpy(a_enviar + offset, paquete->buffer->stream, paquete->buffer->size);
 
+
 	send(socket, a_enviar, buffer->size + sizeof(uint32_t) + sizeof(uint32_t), 0);
 
 
@@ -169,8 +170,9 @@ void empaquetar_y_enviar_i_o(t_buffer* buffer, int socket, uint32_t codigo_opera
 	memcpy(a_enviar + offset, &(paquete->buffer->size), sizeof(uint32_t));
 	offset += sizeof(uint32_t);
 	memcpy(a_enviar + offset, paquete->buffer->stream, paquete->buffer->size);
-
-	send(socket, a_enviar, buffer->size + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t), 0);
+	printf("a enviar: %d\n", buffer->size + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t));
+	int enviado = send(socket, a_enviar, buffer->size + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t), 0);
+	printf("enviado: %d\n", enviado);
 
 	// No nos olvidamos de liberar la memoria que ya no usaremos
 	free(a_enviar);

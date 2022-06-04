@@ -29,7 +29,7 @@
 #define FIFO 21
 
 t_log* logger;
-
+pthread_t pasar_a_ready;
 typedef struct
 {
 	uint32_t cod_op;
@@ -87,6 +87,7 @@ sem_t signal_a_io;
 sem_t dispositivo_de_io;
 
 sem_t binario_lista_ready;
+sem_t binario_plani_corto;
 
 t_queue* cola_procesos_nuevos;
 

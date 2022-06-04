@@ -3,7 +3,6 @@
 void* recibiendo(void* input, t_config* config){
 	pcb* nuevo_pcb = malloc(sizeof(pcb)); // OJO con que no nos pase q se va el espacio de mem al salir del contexto de la llamada
 
-	int ayuding;
 	int* cliente_fd = (int *) input;
 	void* buffer_instrucciones;
 	int codigo_de_paquete = recibir_operacion(*cliente_fd);
@@ -18,7 +17,6 @@ void* recibiendo(void* input, t_config* config){
 		proximo_pid++;
 		sem_post(&mutex_cola_new);
 		sem_post(&contador_de_listas_esperando_para_estar_en_ready);
-		sem_getvalue(&contador_de_listas_esperando_para_estar_en_ready, &ayuding);
 
 	}
 	return NULL;
@@ -35,7 +33,6 @@ void* escuchar_consola(int socket_kernel_escucha, t_config* config){
 
 		void* _f_aux(void* cliente_fd){
 			recibiendo(cliente_fd, config);// post recibiendo perdemos las cosas
-			printf("recibi\n");
 			return NULL;
 		}
 		pthread_create(&thread_type, NULL, _f_aux, (void*) &cliente_fd );
@@ -52,8 +49,6 @@ void* funcion_pasar_a_ready(void* nada){ //necesita un hilo
 	while(1){
 		sem_wait(&contador_de_listas_esperando_para_estar_en_ready);
 		sem_wait(&sem_contador_multiprogramacion);
-		printf("intente pasar a ready\n");
-
 		sem_wait(&mutex_cola_sus_ready);
 
 		valor = queue_is_empty(cola_procesos_sus_ready); // devuelve un valor distinto a cero si la cola esta vacia se hace adentro del sem, porque la cola puede modificarse
@@ -69,10 +64,9 @@ void* funcion_pasar_a_ready(void* nada){ //necesita un hilo
 
 			sem_post(&mutex_cola_sus_ready);
 			sem_post(&binario_lista_ready);
-			if (int_modo_planificacion == SRT) planificador_de_corto_plazo();
+			if (int_modo_planificacion == SRT) sem_post(&binario_plani_corto);
 
-
-			return NULL;
+			continue;
 		}
 
 		sem_post(&mutex_cola_sus_ready); //doble signal en caso de que entre o no al IF
@@ -89,9 +83,8 @@ void* funcion_pasar_a_ready(void* nada){ //necesita un hilo
 
 			sem_post(&mutex_cola_ready);
 			sem_post(&binario_lista_ready);
-			if (int_modo_planificacion == SRT) planificador_de_corto_plazo();
-			if (inicio) {
-				planificador_de_corto_plazo();
+			if (inicio || int_modo_planificacion == SRT) {
+				sem_post(&binario_plani_corto);
 				inicio =0;
 			}
 		}
@@ -114,7 +107,6 @@ void pasar_a_running(pcb* proceso_ready){
 }
 
 void* realizar_io(void* proceso_sin_castear){
-	printf("me llamaron a hacer io\n");
 	pcb* proceso = (pcb*)proceso_sin_castear;
 
 	float aux [2];
@@ -133,7 +125,11 @@ void* realizar_io(void* proceso_sin_castear){
 			queue_push(cola_de_ready, proceso);
 			sem_post(&mutex_cola_ready);
 			sem_post(&binario_lista_ready);
-			if (int_modo_planificacion == SRT) planificador_de_corto_plazo();
+
+			if (int_modo_planificacion == SRT) {
+				sem_post(&binario_plani_corto);
+				printf("llame a corto p\n");
+			}
 			//ir a ready
 
 		}else{
@@ -174,7 +170,6 @@ void* dispositivo_io(void* nada){ //ESTE HAY QUE HACERLE UN HILO
 		cantidad_en_io++;
 		if(cantidad_en_io){
 			sem_wait(&mutex_cola_suspendido);
-			printf("intento bloquear");
 			if(sem_trywait(&dispositivo_de_io) == 0){
 				pthread_t hacer_io;
 				void* proceso = queue_pop(cola_de_io);
@@ -182,9 +177,7 @@ void* dispositivo_io(void* nada){ //ESTE HAY QUE HACERLE UN HILO
 				cantidad_en_io--;
 
 			}else sem_post(&signal_a_io);
-			printf("cant io: %d\n",cantidad_en_io);
 			for(int i=1; i<=cantidad_en_io; i++ ){
-				printf("llego uno aca\n");
 				float tiempo_actual = ((float) time(NULL))*1000;
 				// checkear si la diferencia entre tiempo de pcb y actual es mayor a la espera maxima, entonces subo el grado de multiprogramacion
 				pcb* proceso_sus = (pcb*) queue_pop(cola_de_io);
@@ -192,7 +185,6 @@ void* dispositivo_io(void* nada){ //ESTE HAY QUE HACERLE UN HILO
 				void* temporal = dictionary_get(pid_handler, string_pid);
 				float io[2];
 				memcpy(io, temporal, sizeof(float)*2);
-				printf("%f\n", io[0]);
 				if((tiempo_actual - io[1]) > tiempo_de_espera_max) {
 					sem_post(&sem_contador_multiprogramacion); //aparte mandar un msg que no conocemos a memoria
 					char* string_pid = string_itoa(proceso_sus->pid);
@@ -210,20 +202,17 @@ void* recibir_pcb_de_cpu(void* nada){
 	uint32_t finalizar = 101;
 
 	while(1){
-		float io[2] = {0,0};
+		printf("espero a recibir op\n");
+		float io[2];
 		int dato;
 		pcb* proceso_recibido = malloc(sizeof(pcb));
 		int codigo_de_paquete = recibir_operacion(conexion_CPU_dispatch);
 
-		printf("yendo al switch\n");
 		switch(codigo_de_paquete) {
 
 			case OPERACION_IO:
-				printf("llego para hacer io\n");
-				// luego de modificar el pcb hay que calcular el srt para el pcb
 
 				dato = recibir_operacion(conexion_CPU_dispatch);
-				printf("dato: %d\n",dato);
 				recibir_pcb(conexion_CPU_dispatch, proceso_recibido);
 
 				io[0] = (float)dato;
@@ -238,11 +227,11 @@ void* recibir_pcb_de_cpu(void* nada){
 
 				dictionary_put(process_state, string_pid, "blocked");
 				sem_post(&signal_a_io);
-				planificador_de_corto_plazo();
+				sem_post(&binario_plani_corto);//aca esta el error ahora esta distito
+				printf("recibir intento planificar\n");
 				break;
 
 			case OPERACION_EXIT:
-				printf("exit\n");
 				recibir_pcb(conexion_CPU_dispatch, proceso_recibido);
 
 				//2 send(memoria, borrar_pid, int, 0);
@@ -250,7 +239,7 @@ void* recibir_pcb_de_cpu(void* nada){
 				send(proceso_recibido->socket_consola, &finalizar, sizeof(uint32_t), 0); //aviso a la consola que termino su proceso
 
 				sem_post(&sem_contador_multiprogramacion);
-				planificador_de_corto_plazo();
+				sem_post(&binario_plani_corto);
 				break;
 
 			case OPERACION_INTERRUPT:
@@ -265,7 +254,7 @@ void* recibir_pcb_de_cpu(void* nada){
 
 				break;
 			case CPU_LIBRE:
-
+				printf("caso vacio\n");
 				flag_respuesta_a_interupcion = 2;
 				sem_post(&binario_flag_interrupt);
 
@@ -281,51 +270,59 @@ void* recibir_pcb_de_cpu(void* nada){
 
 
 
-void planificador_de_corto_plazo(){
-	sem_wait(&binario_lista_ready);
-	pcb* proceso_a_ejecutar = NULL;
-	flag_respuesta_a_interupcion =0;
-	uint32_t num_aux = OPERACION_INTERRUPT;
-	int flag_vacio = 0;
+void* planificador_de_corto_plazo(void* nada){
+	while(1){
+		sem_wait(&binario_plani_corto);
+		printf("fui llamada\n");
+		sem_wait(&binario_lista_ready);
+		printf("hay algo para hacer\n");
+		pcb* proceso_a_ejecutar = NULL;
+		flag_respuesta_a_interupcion = 0;
+		int num_aux = OPERACION_INTERRUPT;
+		int flag_vacio = 0;
 
-	if (int_modo_planificacion == SRT){
-		printf("llegue\n");
-		send(conexion_cpu_interrupt, &num_aux, sizeof(uint32_t), 0);  //srt hace una interrupcion al cpu para desalojar
-		printf("mande int, espero rta cpu\n");
-		sem_wait(&binario_flag_interrupt);
-		printf("recibi respuesta de la cpu\n");
-		pcb* candidato_del_stack;
-		switch(flag_respuesta_a_interupcion){
-			case 1:{
-				candidato_del_stack = algoritmo_srt(); //ver quien es el mas corto en la lista de ready
-				if(ejecutado->estimacion_siguiente <= candidato_del_stack->estimacion_siguiente){ //aca se fija si el de la cpu es mas corto y lo pone en running
-					pasar_a_running(ejecutado);
-				}
-				else{pasar_a_running(candidato_del_stack);
-				remover_de_cola_ready(candidato_del_stack);
-				sem_wait(&mutex_cola_ready);
-				queue_push(cola_de_ready, ejecutado);
-				sem_post(&mutex_cola_ready);
-				}
+		if (int_modo_planificacion == SRT){
+			printf("llegue\n");
+			send(conexion_cpu_interrupt, &num_aux, sizeof(int), 0);  //srt hace una interrupcion al cpu para desalojar
+			printf("mande int, espero rta cpu\n");
+			sem_wait(&binario_flag_interrupt);
+			printf("recibi respuesta de la cpu\n");
 
-				break;
+
+			pcb* candidato_del_stack;
+			switch(flag_respuesta_a_interupcion){
+				case 1:{
+					candidato_del_stack = algoritmo_srt(); //ver quien es el mas corto en la lista de ready
+					if(ejecutado->estimacion_siguiente <= candidato_del_stack->estimacion_siguiente){ //aca se fija si el de la cpu es mas corto y lo pone en running
+						pasar_a_running(ejecutado);
+					}
+					else{pasar_a_running(candidato_del_stack);
+					remover_de_cola_ready(candidato_del_stack);
+					sem_wait(&mutex_cola_ready);
+					queue_push(cola_de_ready, ejecutado);
+					sem_post(&mutex_cola_ready);
+					}
+
+					break;
+				}
+				case 2:{			//caso en el que la cpu esta vacia y no nos da nada
+					candidato_del_stack = algoritmo_srt();
+					pasar_a_running(candidato_del_stack);
+					remover_de_cola_ready(candidato_del_stack);
+					break;
+				}
 			}
-			case 2:{			//caso en el que la cpu esta vacia y no nos da nada
-				candidato_del_stack = algoritmo_srt();
-				pasar_a_running(candidato_del_stack);
-				remover_de_cola_ready(candidato_del_stack);
-				break;
-			}
+
+
+		}else if (int_modo_planificacion == FIFO){
+			sem_wait(&mutex_cola_ready);
+			flag_vacio = queue_is_empty(cola_de_ready);
+			if(!flag_vacio) proceso_a_ejecutar = (pcb*) queue_pop(cola_de_ready);
+			sem_post(&mutex_cola_ready);
+			if(!flag_vacio) pasar_a_running(proceso_a_ejecutar);
 		}
-
-
-	}else if (int_modo_planificacion == FIFO){
-		sem_wait(&mutex_cola_ready);
-		flag_vacio = queue_is_empty(cola_de_ready);
-		if(!flag_vacio) proceso_a_ejecutar = (pcb*) queue_pop(cola_de_ready);
-		sem_post(&mutex_cola_ready);
-		if(!flag_vacio) pasar_a_running(proceso_a_ejecutar);
 	}
+	return NULL;
 }
 
 
