@@ -153,7 +153,7 @@ void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion
 
 
 void empaquetar_y_enviar_i_o(t_buffer* buffer, int socket, uint32_t codigo_operacion, uint32_t tiempo_bloqueo){
-	t_paquete_i_o* paquete = malloc(sizeof(t_paquete));
+	t_paquete_i_o* paquete = malloc(sizeof(t_paquete_i_o));
 	paquete->codigo_operacion_de_paquete = codigo_operacion;
 	paquete->tiempo_bloqueo = tiempo_bloqueo;
 	paquete->buffer = buffer;
@@ -170,8 +170,7 @@ void empaquetar_y_enviar_i_o(t_buffer* buffer, int socket, uint32_t codigo_opera
 	offset += sizeof(uint32_t);
 	memcpy(a_enviar + offset, paquete->buffer->stream, paquete->buffer->size);
 
-	send(socket, a_enviar, buffer->size + sizeof(uint32_t) + sizeof(uint32_t), 0);
-
+	send(socket, a_enviar, buffer->size + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t), 0);
 
 	// No nos olvidamos de liberar la memoria que ya no usaremos
 	free(a_enviar);

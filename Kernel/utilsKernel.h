@@ -86,6 +86,8 @@ sem_t signal_a_io;
 
 sem_t dispositivo_de_io;
 
+sem_t binario_lista_ready;
+
 t_queue* cola_procesos_nuevos;
 
 t_queue* cola_procesos_sus_ready;

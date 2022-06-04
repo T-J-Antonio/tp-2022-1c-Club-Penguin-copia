@@ -48,7 +48,6 @@ int esperar_cliente(int socket_servidor)
 		send(socket_cliente, &resultError, sizeof(uint32_t), 0); // cambiar NULL por 0
 	}
 	//log_info(logger, "Se conecto un cliente!");
-	printf("post log");
 
 	return socket_cliente;
 }
@@ -185,7 +184,6 @@ t_buffer* serializar_header(pcb* header){
 	uint32_t buffer_size = 6*sizeof(uint32_t) + header->tamanio_stream_instrucciones + header->tamanio_paginas + sizeof(float)*3 ;
 	buffer->size = 0;
 	buffer->size = buffer_size;
-	printf("dato: %d \n", header->tamanio_en_memoria);
 	buffer->stream = malloc(buffer->size);
 
 	memcpy(buffer->stream + offset, &header->pid, sizeof(uint32_t));
@@ -194,8 +192,6 @@ t_buffer* serializar_header(pcb* header){
 	offset += sizeof(uint32_t);
 	memcpy(buffer->stream + offset, &header->tamanio_stream_instrucciones, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
-
-	printf("tam str ins: %d", header->tamanio_stream_instrucciones);
 
 	memcpy(buffer->stream + offset, header->instrucciones, header->tamanio_stream_instrucciones);
 	offset += header->tamanio_stream_instrucciones;

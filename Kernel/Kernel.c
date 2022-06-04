@@ -16,6 +16,7 @@ int main(void) {
 	sem_init(&mutex_cola_suspendido, 0, 1);
 	sem_init(&signal_a_io, 0, 0);
 	sem_init(&dispositivo_de_io, 0, 1);
+	sem_init(&binario_lista_ready, 0, 0);
 
 
 	cola_procesos_nuevos = queue_create();
@@ -45,13 +46,13 @@ int main(void) {
 	int socket_kernel_escucha = iniciar_servidor(ip_kernel, puerto_escucha);//ip kernel unica, pero el puerto es el del escucha,
 
 	char* puerto_interrupt = config_get_string_value(config, "PUERTO_CPU_INTERRUPT");
-	conexion_cpu_interrupt = iniciar_servidor(ip_CPU, puerto_interrupt);//conexion al puerto de cpu para interrumpir
 
 	estimacion_inicial = (float) config_get_int_value(config, "ESTIMACION_INICIAL");
 	alfa = (float) config_get_int_value(config, "ALFA");
 
 	conexion_CPU_dispatch = crear_conexion(ip_CPU, puerto_CPU);
 
+	conexion_cpu_interrupt = crear_conexion(ip_CPU, puerto_interrupt);//conexion al puerto de cpu para interrumpir
 	void* _f_aux_escucha_consola(void *socket_kernel_escucha){
 		escuchar_consola(*(int*)socket_kernel_escucha, config);
 		return NULL;
@@ -69,6 +70,9 @@ int main(void) {
 	pthread_t recibir_procesos_por_cpu;
 	pthread_create(&recibir_procesos_por_cpu, NULL, recibir_pcb_de_cpu, NULL );
 
+
+	pthread_t gestionar_io;
+	pthread_create(&gestionar_io, NULL, dispositivo_io, NULL );
 
 	pthread_join(socket_escucha_consola, NULL);
 
