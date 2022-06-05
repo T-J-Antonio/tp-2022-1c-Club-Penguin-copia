@@ -1,6 +1,7 @@
 #include "planificador.h"
 
 int main(void) {
+	printf("starting");
 	inicio = 1;
 	pid_handler = dictionary_create();
 	process_state = dictionary_create();
