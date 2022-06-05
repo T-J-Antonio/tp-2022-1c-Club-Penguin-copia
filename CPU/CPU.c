@@ -139,7 +139,6 @@ void ciclo_de_instruccion(pcb* en_ejecucion, t_config* config, int socket_escuch
 		tiempo_bloqueo = a_ejecutar->parametros[0];
 		pcb_actualizado = serializar_header(en_ejecucion);
 		empaquetar_y_enviar_i_o(pcb_actualizado, socket_escucha_dispatch, OPERACION_IO, tiempo_bloqueo);
-		free(pcb_actualizado);
 
 		break;
 
@@ -157,7 +156,6 @@ void ciclo_de_instruccion(pcb* en_ejecucion, t_config* config, int socket_escuch
 		++(en_ejecucion->program_counter);
 		pcb_actualizado = serializar_header(en_ejecucion);
 		empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, OPERACION_EXIT);
-		free(pcb_actualizado);
 		break;
 	}
 
@@ -170,7 +168,6 @@ void ciclo_de_instruccion(pcb* en_ejecucion, t_config* config, int socket_escuch
 		else{
 			pcb_actualizado = serializar_header(en_ejecucion);
 			empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, RESPUESTA_INTERRUPT);
-			free(pcb_actualizado);
 		}
 		hay_interrupciones--;
 	}

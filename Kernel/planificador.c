@@ -207,7 +207,7 @@ void* recibir_pcb_de_cpu(void* nada){
 		int dato;
 		pcb* proceso_recibido = malloc(sizeof(pcb));
 		int codigo_de_paquete = recibir_operacion(conexion_CPU_dispatch);
-
+		printf("codigo: %d\n", codigo_de_paquete);
 		switch(codigo_de_paquete) {
 
 			case OPERACION_IO:
@@ -242,7 +242,7 @@ void* recibir_pcb_de_cpu(void* nada){
 				sem_post(&binario_plani_corto);
 				break;
 
-			case OPERACION_INTERRUPT:
+			case RESPUESTA_INTERRUPT:
 				ejecutado = malloc(sizeof(pcb));
 				recibir_pcb(conexion_CPU_dispatch, ejecutado);
 
