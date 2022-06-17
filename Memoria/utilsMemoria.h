@@ -55,15 +55,23 @@ typedef struct
 	uint32_t tamanio_stream_instrucciones;
 	void* instrucciones;
 	uint32_t program_counter;
-	uint32_t tamanio_paginas;
-	void* tabla_paginas; //el tipo de dato se va a definir cuando hagamos la memoria
+	uint32_t tabla_paginas;
 	float estimacion_siguiente;
 	float timestamp_inicio_exe;
 	float real_actual;
 	int socket_consola;
 } pcb;
 
+typedef struct{
+	uint32_t marco;
+	uint32_t numero_de_pagina;
+	uint32_t bit_presencia;
+	uint32_t bit_de_uso;
+	uint32_t bit_modificado;
 
+} tabla_de_segundo_nivel;
+
+t_list* lista_de_tablas_de_primer_nivel;
 //FUNCIONES TRAÍDAS DEL TP0
 
 int iniciar_servidor(char*, char*);

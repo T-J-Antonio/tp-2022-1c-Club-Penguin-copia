@@ -112,7 +112,7 @@ uint32_t resultOk;
 float estimacion_inicial;
 float alfa;
 
-int flag_respuesta_a_interupcion;
+int flag_respuesta_a_interupcion; //CORREGIR INTERRUPCION CON DOBLE R
 int conexion_cpu_interrupt;
 float tiempo_de_espera_max;
 pcb* ejecutado;
@@ -140,3 +140,4 @@ void crear_header(uint32_t, void*, t_config*, pcb*, float);
 void empaquetar_y_enviar(t_buffer*, int, uint32_t);
 
 void recibir_pcb(int , pcb* );
+void liberar_pcb(pcb*);

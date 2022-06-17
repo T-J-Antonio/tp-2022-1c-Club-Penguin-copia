@@ -1,9 +1,4 @@
 #include "utilsCPU.h"
-void eliminar_paquete(t_paquete* paquete) {
-	free(paquete->buffer->stream);
-	free(paquete->buffer);
-	free(paquete);
-}
 
 int iniciar_servidor(char* ip, char* puerto)
 {
@@ -68,30 +63,12 @@ void* recibir_buffer(int* size, int socket_cliente)
 	void * buffer;
 															// Al hacer el recv, el size se pierde, socket_cliente va a apuntar no al inicio, si no 4 bytes desplazados, o sea a donde comienzan las instrucciones
 	recv(socket_cliente, size, sizeof(int), MSG_WAITALL);   // Almacena en size lo que hay dentro de los primeros 4 bytes, que es el tamaño que van a ocupar las instrucciones
-	buffer = malloc(*size);									 // Le asignamos al buffer el tamaño que requerira para almacenar esas instrucciones
+	buffer = malloc(*size);									// Le asignamos al buffer el tamaño que requerira para almacenar esas instrucciones
 	printf("tam: %d\n", *size);
-	recv(socket_cliente, buffer, *size, MSG_WAITALL);		 // Le damos las instrucciones
+	recv(socket_cliente, buffer, *size, MSG_WAITALL);		// Le damos las instrucciones
 
 	return buffer;
 }
-
-void* recibir_instrucciones(int socket_cliente){
-	int size;
-	void * buffer;
-	void* buffer_aux;
-
-	buffer = recibir_buffer(&size, socket_cliente);
-	buffer_aux = malloc(sizeof(uint32_t) + size);
-	memcpy(buffer_aux, &size, sizeof(uint32_t));
-	memcpy(buffer_aux + sizeof(uint32_t), buffer, size);
-
-
-	free(buffer);
-	return buffer_aux;
-}
-
-
-
 
 int crear_conexion(char *ip, char* puerto) {
 	struct addrinfo hints;
@@ -243,30 +220,6 @@ void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
 
 }
 
-void imprimir_instruccion(void * var){
-	instruccion *alo = (instruccion *) var;
-
-	printf("codigo de operacion: %d\n", alo->cod_op);
-	uint32_t i = 0;
-	uint32_t cant = alo->tam_param/sizeof(uint32_t);
-
-	while(i<cant){
-		printf("parametro: %d\n", alo->parametros[i]);
-		i++;
-	}
-}
-
-
-
-void imprimir_pcb(pcb* recepcion){
-	printf("pid: %d\n", recepcion->pid);
-	printf("tamanio_en_memoria: %d\n", recepcion->tamanio_en_memoria);
-	list_iterate(recepcion->instrucciones, imprimir_instruccion);
-	printf("program_counter: %d\n", recepcion->program_counter);
-	printf("tamanio_paginas: %d\n", recepcion->tamanio_paginas);
-	printf("estimacion_siguiente: %f\n", recepcion->estimacion_siguiente);
-
-}
 
 uint32_t serializar_instruccion(t_buffer* buffer, instruccion* instruccion, uint32_t offset){
 	//buffer->size += sizeof(uint32_t) * 2 + instruccion->tam_param; // Parámetros
@@ -331,4 +284,126 @@ t_buffer* serializar_header(pcb* header){
 
 	return buffer;
 
+}
+
+void instruccion_destroyer(void* elem){
+	instruccion* una_instruccion = (instruccion*) elem;
+	free(una_instruccion->parametros);
+	free(una_instruccion);
+}
+
+void liberar_pcb(pcb* pcb){
+	free(pcb->tabla_paginas);
+	list_destroy_and_destroy_elements(pcb->instrucciones, instruccion_destroyer);
+	free(pcb);
+}
+
+void eliminar_paquete(t_paquete* paquete) {
+	free(paquete->buffer->stream);
+	free(paquete->buffer);
+	free(paquete);
+}
+
+void eliminar_paquete_i_o(t_paquete_i_o* paquete) {
+	free(paquete->buffer->stream);
+	free(paquete->buffer);
+	free(paquete);
+}
+
+uint32_t obtener_direccion_fisica(uint32_t direccion_logica, uint32_t tabla_paginas){
+	
+	uint32_t nro_pagina = nro_pagina(direccion_logica);
+	if(esta_en_TLB(nro_pagina)) 
+		entrada_tlb* estructura = obtener_datos_de_TLB(nro_pagina);
+	else
+	uint32_t entrada_tabla_1er_nivel = entrada_tabla_1er_nivel(nro_pagina);
+	//tabla_2do_nivel = primer_acceso_a_memoria(tabla_paginas, entrada_tabla_1er_nivel);
+	uint32_t entrada_tabla_2do_nivel = entrada_tabla_2do_nivel(nro_pagina);
+	//nro_marco = segundo_acceso_a_memoria(tabla_2do_nivel, entrada_tabla_2do_nivel);
+	uint32_t desplazamiento = desplazamiento(direccion_logica, nro_pagina);
+	uint32_t direccion_fisica = nro_marco * tamanio_pagina + desplazamiento;
+	guardar_en_TLB(nro_pagina, nro_marco);
+	return direccion_fisica;
+}
+
+uint32_t algoritmo_reemplazo_to_int(char* str){
+	if(strcmp(str, "FIFO")) return REEMPLAZO_FIFO;
+	else return REEMPLAZO_LRU;
+}
+
+void guardar_en_TLB(uint32_t nro_pagina, uint32_t nro_marco) {
+	entrada_tlb* nueva_entrada = malloc(sizeof(entrada_tlb));
+	nueva_entrada->pagina = nro_pagina;
+	nueva_entrada->marco = nro_marco;
+	nueva_entrada->timestamp = ((float)time(NULL)*1000);
+	if(queue_size(TLB) < cant_marcos) { //cant_marcos se obtiene de memoria.config
+		queue_push(TLB, nueva_entrada);
+	}
+	else {
+		switch(algoritmo_reemplazo_TLB)
+		{
+			case REEMPLAZO_FIFO:
+				entrada_tlb* entrada_a_reemplazar = queue_pop(TLB);
+				queue_push(TLB, nueva_entrada);
+				free(entrada_a_reemplazar);
+			case REEMPLAZO_LRU:
+				algoritmo_LRU(nueva_entrada);
+		}
+		
+	}
+}
+
+uint32_t esta_en_TLB(uint32_t nro_pagina){
+	for(uint32_t indice = 0 ; indice < queue_size(TLB) ; indice++){
+		entrada_tlb* una_entrada = queue_pop(TLB);
+		if (entrada_tlb->pagina == nro_pagina){
+			//actualizar timestamp
+			return 1;
+		}
+	}
+	return 0;
+}
+
+uint32_t nro_pagina(uint32_t direccion_logica){
+	// el tamaño página se solicita a la memoria al comenzar la ejecución
+	return direccion_logica / tamanio_pagina; // ---> la división ya retorna el entero truncado a la unidad
+}
+
+uint32_t entrada_tabla_1er_nivel(uint32_t nro_pagina){
+	// la cant. de entradas se solicita a la memoria
+	return nro_pagina / cant_entradas_por_tabla;
+}
+
+uint32_t entrada_tabla_2do_nivel(uint32_t nro_pagina){
+	return nro_pagina % cant_entradas_por_tabla;
+}
+
+uint32_t desplazamiento(uint32_t direccion_logica, uint32_t nro_pagina){
+	return direccion_logica - nro_pagina * tamanio_pagina;
+}
+
+
+
+// Con este algoritmo, buscamos aquella entrada que este hace mas tiempo en la TLB para asi reemplazarla
+void algoritmo_LRU(entrada_tlb* nueva_entrada){
+	entrada_tlb* auxiliar1 = malloc(sizeof(entrada_tlb));
+	entrada_tlb* auxiliar2 = malloc(sizeof(entrada_tlb));
+
+	uint32_t tamanio = queue_size(TLB);
+	auxiliar1 = queue_pop(TLB);
+
+	for(int i = 1, i < tamanio, i++){
+		auxiliar2 = queue_pop(TLB);
+
+		if(auxiliar1->timestamp > auxiliar2->timestamp) {
+			queue_push(TLB, auxiliar1);
+			auxiliar1 = auxiliar2;
+		}
+// Si el aux1 es más nuevo en la TLB que el aux2, pushea el auxiliar 1 y le asigna el más viejo, o sea auxiliar 2. 
+// De esta forma, en auxiliar 1 nos queda la entrada que esta hace mas tiempo en TLB para volver a comparar
+		else
+			queue_push(TLB, auxiliar2);
+	}
+	
+	queue_push(TLB, nueva_entrada);
 }

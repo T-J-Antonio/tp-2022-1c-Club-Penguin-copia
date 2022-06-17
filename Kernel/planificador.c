@@ -91,7 +91,6 @@ void* funcion_pasar_a_ready(void* nada){ //necesita un hilo
 
 		sem_post(&mutex_cola_new); //aca no pasa lo mismo ya que queremos que siga luego del if, por lo tanto va a pasar por el signal
 	}
-
 	return NULL;
 }
 
@@ -102,8 +101,7 @@ void pasar_a_running(pcb* proceso_ready){
 	t_buffer* pcb_serializado = malloc(sizeof(t_buffer));
 	pcb_serializado = serializar_header(proceso_ready);
 	empaquetar_y_enviar(pcb_serializado, conexion_CPU_dispatch, OPERACION_ENVIO_PCB);
-	//vamos a tener que hacer un free
-
+	liberar_pcb(proceso_ready);
 }
 
 void* realizar_io(void* proceso_sin_castear){
@@ -130,6 +128,7 @@ void* realizar_io(void* proceso_sin_castear){
 				sem_post(&binario_plani_corto);
 				printf("llame a corto p\n");
 			}
+			
 			//ir a ready
 
 		}else{
@@ -237,7 +236,7 @@ void* recibir_pcb_de_cpu(void* nada){
 				//2 send(memoria, borrar_pid, int, 0);
 				//recv(memoria, borrar_pid, int, MSG_WAITALL); mensaje de que ya elimino la mem para proceder
 				send(proceso_recibido->socket_consola, &finalizar, sizeof(uint32_t), 0); //aviso a la consola que termino su proceso
-
+				liberar_pcb(proceso_recibido);
 				sem_post(&sem_contador_multiprogramacion);
 				sem_post(&binario_plani_corto);
 				break;
@@ -248,21 +247,18 @@ void* recibir_pcb_de_cpu(void* nada){
 
 				ejecutado->estimacion_siguiente = ((float)time(NULL)*1000) - ejecutado->estimacion_siguiente; //son detalles
 
-				flag_respuesta_a_interupcion = 1;
+				flag_respuesta_a_interrupcion = 1;
 				sem_post(&binario_flag_interrupt);
-
 
 				break;
 			case CPU_LIBRE:
 				printf("caso vacio\n");
-				flag_respuesta_a_interupcion = 2;
+				flag_respuesta_a_interrupcion = 2;
 				sem_post(&binario_flag_interrupt);
-
 
 				break;
 			}
 	}
-
  return NULL;
 }
 
@@ -290,25 +286,27 @@ void* planificador_de_corto_plazo(void* nada){
 
 
 			pcb* candidato_del_stack;
-			switch(flag_respuesta_a_interupcion){
+			switch(flag_respuesta_a_interrupcion){
 				case 1:{
 					candidato_del_stack = algoritmo_srt(); //ver quien es el mas corto en la lista de ready
 					if(ejecutado->estimacion_siguiente <= candidato_del_stack->estimacion_siguiente){ //aca se fija si el de la cpu es mas corto y lo pone en running
 						pasar_a_running(ejecutado);
+						liberar_pcb(candidato_del_stack);
 					}
-					else{pasar_a_running(candidato_del_stack);
-					remover_de_cola_ready(candidato_del_stack);
-					sem_wait(&mutex_cola_ready);
-					queue_push(cola_de_ready, ejecutado);
-					sem_post(&mutex_cola_ready);
+					else{
+						remover_de_cola_ready(candidato_del_stack);
+						pasar_a_running(candidato_del_stack);
+						sem_wait(&mutex_cola_ready);
+						queue_push(cola_de_ready, ejecutado);
+						sem_post(&mutex_cola_ready);
 					}
 
 					break;
 				}
 				case 2:{			//caso en el que la cpu esta vacia y no nos da nada
 					candidato_del_stack = algoritmo_srt();
-					pasar_a_running(candidato_del_stack);
 					remover_de_cola_ready(candidato_del_stack);
+					pasar_a_running(candidato_del_stack);
 					break;
 				}
 			}
@@ -322,6 +320,7 @@ void* planificador_de_corto_plazo(void* nada){
 			if(!flag_vacio) pasar_a_running(proceso_a_ejecutar);
 		}
 	}
+	
 	return NULL;
 }
 
@@ -348,6 +347,7 @@ pcb* algoritmo_srt(){
 		if(!(auxiliar1->estimacion_siguiente <= auxiliar2->estimacion_siguiente)) auxiliar1 = auxiliar2;
 	}
 	sem_post(&mutex_cola_ready);
+	
 	return auxiliar1;
 
 }
@@ -368,9 +368,11 @@ void remover_de_cola_ready(pcb* item){
 		}
 	}
 	sem_post(&mutex_cola_ready);
+	//liberar_pcb(auxiliar); DUDA SI DEBERIA IR O NO creo que si
 }
 
 
 void hacer_cuenta_srt(pcb* proceso_deseado){ //esto hay que llamarlo dentro de los semaforos
 	proceso_deseado->estimacion_siguiente = proceso_deseado->real_actual * alfa + (proceso_deseado->estimacion_siguiente * (1 - alfa));
+	
 }

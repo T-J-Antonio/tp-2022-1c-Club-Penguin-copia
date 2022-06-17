@@ -69,8 +69,8 @@ void* recibir_buffer(int* size, int socket_cliente)
 	void * buffer;
 															// Al hacer el recv, el size se pierde, socket_cliente va a apuntar no al inicio, si no 4 bytes desplazados, o sea a donde comienzan las instrucciones
 	recv(socket_cliente, size, sizeof(int), MSG_WAITALL);   // Almacena en size lo que hay dentro de los primeros 4 bytes, que es el tamaño que van a ocupar las instrucciones
-	buffer = malloc(*size);									 // Le asignamos al buffer el tamaño que requerira para almacenar esas instrucciones
-	recv(socket_cliente, buffer, *size, MSG_WAITALL);		 // Le damos las instrucciones
+	buffer = malloc(*size);									// Le asignamos al buffer el tamaño que requerira para almacenar esas instrucciones
+	recv(socket_cliente, buffer, *size, MSG_WAITALL);		// Le damos las instrucciones
 
 	return buffer;
 }
@@ -157,6 +157,7 @@ int crear_conexion(char *ip, char* puerto) {
 void liberar_conexion(int socket_cliente) {
 	close(socket_cliente);
 }
+
 void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion){
 	uint32_t tamanio = buffer->size + sizeof(uint32_t) + sizeof(uint32_t);
 	//  					 lista  codigo_operacion_de_paquete   tamaño_lista
@@ -171,10 +172,10 @@ void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion
 
 	send(socket, a_enviar, buffer->size + sizeof(uint32_t) + sizeof(uint32_t), 0);
 
-
 	// No nos olvidamos de liberar la memoria que ya no usaremos
 	free(a_enviar);
-
+	free(buffer->stream);
+	free(buffer);
 }
 
 
@@ -261,4 +262,10 @@ void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
 
 	free(buffer);
 
+}
+
+void liberar_pcb(pcb* pcb){
+	free(pcb->tabla_paginas);
+	free(pcb->instrucciones);
+	free(pcb);
 }
