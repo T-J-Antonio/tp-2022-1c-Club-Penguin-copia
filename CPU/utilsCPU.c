@@ -313,16 +313,22 @@ void eliminar_paquete_i_o(t_paquete_i_o* paquete) {
 uint32_t obtener_direccion_fisica(uint32_t direccion_logica, uint32_t tabla_paginas){
 	
 	uint32_t nro_pagina = nro_pagina(direccion_logica);
-	if(esta_en_TLB(nro_pagina)) 
-		entrada_tlb* estructura = obtener_datos_de_TLB(nro_pagina);
-	else
-	uint32_t entrada_tabla_1er_nivel = entrada_tabla_1er_nivel(nro_pagina);
-	//tabla_2do_nivel = primer_acceso_a_memoria(tabla_paginas, entrada_tabla_1er_nivel);
-	uint32_t entrada_tabla_2do_nivel = entrada_tabla_2do_nivel(nro_pagina);
-	//nro_marco = segundo_acceso_a_memoria(tabla_2do_nivel, entrada_tabla_2do_nivel);
-	uint32_t desplazamiento = desplazamiento(direccion_logica, nro_pagina);
-	uint32_t direccion_fisica = nro_marco * tamanio_pagina + desplazamiento;
-	guardar_en_TLB(nro_pagina, nro_marco);
+
+	if(esta_en_TLB(nro_pagina)) {
+		uint32_t marco = obtener_marco_de_TLB(nro_pagina);
+		uint32_t desplazamiento = desplazamiento(direccion_logica, nro_pagina);
+		uint32_t direccion_fisica = nro_marco * tamanio_pagina + desplazamiento; // Tamanio pagina viene desde memoria.config
+	}
+	else {
+		uint32_t entrada_tabla_1er_nivel = entrada_tabla_1er_nivel(nro_pagina);
+		//tabla_2do_nivel = primer_acceso_a_memoria(tabla_paginas, entrada_tabla_1er_nivel);
+		uint32_t entrada_tabla_2do_nivel = entrada_tabla_2do_nivel(nro_pagina);
+		//nro_marco = segundo_acceso_a_memoria(tabla_2do_nivel, entrada_tabla_2do_nivel);
+		uint32_t desplazamiento = desplazamiento(direccion_logica, nro_pagina);
+		uint32_t direccion_fisica = nro_marco * tamanio_pagina + desplazamiento;
+		guardar_en_TLB(nro_pagina, nro_marco);
+	}
+
 	return direccion_fisica;
 }
 
@@ -335,8 +341,8 @@ void guardar_en_TLB(uint32_t nro_pagina, uint32_t nro_marco) {
 	entrada_tlb* nueva_entrada = malloc(sizeof(entrada_tlb));
 	nueva_entrada->pagina = nro_pagina;
 	nueva_entrada->marco = nro_marco;
-	nueva_entrada->timestamp = ((float)time(NULL)*1000);
-	if(queue_size(TLB) < cant_marcos) { //cant_marcos se obtiene de memoria.config
+	nueva_entrada->timestamp = (float)time(NULL)*1000;
+	if(queue_size(TLB) < cant_maxima_marcos) { //cant_maxima_marcos se obtiene de memoria.config
 		queue_push(TLB, nueva_entrada);
 	}
 	else {
@@ -349,19 +355,18 @@ void guardar_en_TLB(uint32_t nro_pagina, uint32_t nro_marco) {
 			case REEMPLAZO_LRU:
 				algoritmo_LRU(nueva_entrada);
 		}
-		
 	}
 }
 
 uint32_t esta_en_TLB(uint32_t nro_pagina){
-	for(uint32_t indice = 0 ; indice < queue_size(TLB) ; indice++){
+	uint32_t se_encontro = 0;	
+	for(uint32_t i = 0; i < queue_size(TLB); i++){
 		entrada_tlb* una_entrada = queue_pop(TLB);
-		if (entrada_tlb->pagina == nro_pagina){
-			//actualizar timestamp
-			return 1;
-		}
+		if (una_entrada->pagina == nro_pagina)
+			se_encontro = 1;
+		queue_push(TLB, una_entrada);
 	}
-	return 0;
+	return se_encontro;
 }
 
 uint32_t nro_pagina(uint32_t direccion_logica){
@@ -406,4 +411,17 @@ void algoritmo_LRU(entrada_tlb* nueva_entrada){
 	}
 	
 	queue_push(TLB, nueva_entrada);
+}
+
+uint32_t obtener_marco_de_TLB(nro_pagina_a_buscar){
+	uint32_t auxiliar_marco = -1;
+	for(uint32_t i = 0; i < queue_size(TLB); i++){
+		entrada_tlb* una_entrada = queue_pop(TLB);
+		if (una_entrada->pagina == nro_pagina_a_buscar){
+			una_entrada->timestamp = (float)time(NULL)*1000;
+			aux = una_entrada->marco;
+		}
+		queue_push(TLB, una_entrada);
+	}
+	return auxiliar_marco; //No deberia ocurrir nunca este return
 }

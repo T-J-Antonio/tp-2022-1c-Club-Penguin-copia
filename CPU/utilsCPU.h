@@ -21,15 +21,33 @@
 #define CPU_LIBRE 4
 #define OPERACION_INTERRUPT 5
 #define RESPUESTA_INTERRUPT 6
+#define CREAR_PROCESO 7
+#define SUSPENDER_PROCESO 8
+#define FINALIZAR_PROCESO 9
+#define ACCESO_A_1RA_TABLA 10
+#define ACCESO_A_2DA_TABLA 11
+#define LECTURA_EN_MEMORIA 12
+#define ESCRITURA_EN_MEMORIA 13
 
 #define REEMPLAZO_FIFO 100
 #define REEMPLAZO_LRU 101
 
 t_log* logger;
+
+int tiempo_espera;
+
 sem_t mutex_interrupciones;
 sem_t cpu_en_running;
+
+uint32_t tamanio_pagina;
+uint32_t cant_entradas_por_tabla;
+
 t_queue* TLB;
 uint32_t algoritmo_reemplazo_TLB;
+
+int hay_interrupciones = 0;
+int cliente_dispatch;
+uint32_t cpu_libre = CPU_LIBRE;
 
 typedef struct
 {
@@ -140,3 +158,9 @@ uint32_t entrada_tabla_2do_nivel(uint32_t);
 uint32_t desplazamiento(uint32_t, uint32_t);
 
 uint32_t algoritmo_reemplazo_to_int(char*);
+
+uint32_t esta_en_TLB(uint32_t);
+
+uint32_t guardar_en_TLB(uint32_t, uint32_t);
+
+uint32_t obtener_marco_de_TLB(uint32_t);

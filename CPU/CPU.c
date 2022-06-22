@@ -1,15 +1,8 @@
 #include "utilsCPU.h"
-int hay_interrupciones = 0;
-int cliente_dispatch;
-uint32_t cpu_libre = CPU_LIBRE;
-int tiempo_espera;
-uint32_t tamanio_pagina;
-uint32_t cant_entradas_por_tabla;
 
 void* escuchar_kernel(int, t_config*);
 void* escuchar_interrupciones(int, t_config*);
 void ciclo_de_instruccion(pcb*, int);
-
 
 int main(){
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/CPU/CPU.config");
@@ -116,59 +109,57 @@ void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
 }
 
 
-void ciclo_de_instruccion(pcb* en_ejecucion, int socket_escucha_dispatch){
+void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch){
 	int tiempo_bloqueo = 0;
 	t_buffer* pcb_actualizado = NULL;
+	uint32_t direccion_fisica;
 
 	//fetch
-	instruccion* a_ejecutar = list_get(en_ejecucion->instrucciones, en_ejecucion->program_counter);
+	instruccion* instruccion_a_ejecutar = list_get(proceso_en_ejecucion->instrucciones, proceso_en_ejecucion->program_counter);
 
 	//decode
-	int cod_op = a_ejecutar->cod_op;
+	int cod_op = instruccion_a_ejecutar->cod_op;
 
 	//fetch operands
 	if(cod_op == COPY) {
-		//próximamente
+		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[1], proceso_en_ejecucion->tabla_paginas); 
+		//dato = leer_posicion_de_memoria(direccion_fisica);
 	}
 
 	//execute
 	switch(cod_op){
 	case NO_OP:
 		sleep(tiempo_espera);
-		++(en_ejecucion->program_counter);
+		++(proceso_en_ejecucion->program_counter);
 		break;
 
 	case I_O:
-		++(en_ejecucion->program_counter);
-		tiempo_bloqueo = a_ejecutar->parametros[0];
-		pcb_actualizado = serializar_header(en_ejecucion);
+		++(proceso_en_ejecucion->program_counter);
+		tiempo_bloqueo = instruccion_a_ejecutar->parametros[0];
+		pcb_actualizado = serializar_header(proceso_en_ejecucion);
 		empaquetar_y_enviar_i_o(pcb_actualizado, socket_escucha_dispatch, OPERACION_IO, tiempo_bloqueo);
 		break;
 
 	case READ:
-		//próximamente
-		// obtener_direccion_fisica(direccion_logica, en_ejecucion->tabla_paginas);
-		// si no está en TLB:
-		// hacer cuentas y devolver
+		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas);
+		//dato = leer_posicion_de_memoria(direccion_fisica);
+		//printf("%d", dato);
 		break;
 	case WRITE:
-		//próximamente
-		// obtener_direccion_fisica(direccion_logica, en_ejecucion->tabla_paginas);
-		// si no está en TLB:
-		// hacer cuentas y devolver
+		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas);
+		//escribir_en_posicion_de_memoria(direccion_fisica, instruccion_a_ejecutar->parametros[1]);
 		break;
 	case COPY:
-		//próximamente
-		// obtener_direccion_fisica(direccion_logica, en_ejecucion->tabla_paginas);
-		// si no está en TLB:
-		// hacer cuentas y devolver
-		// Copy va a hacer dos accesos a memoria, primero para leer el dato de una direccion, 
-		// y despues para escribir el dato en la otra direccion
+		// En fetch operands obtuvimos la direccion fisica con la direccion_logica_origen y despues leimos lo que esta
+		// en esa direccion fisica; ahora obtenemos la direccion fisica de la direccion_logica_destino y despues 
+		// escribimos el dato que leimos en esa direccion
+		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas);
+		//escribir_en_posicion_de_memoria(direccion_fisica, dato);
 		break;
 
 	case EXIT:
-		++(en_ejecucion->program_counter);
-		pcb_actualizado = serializar_header(en_ejecucion);
+		++(proceso_en_ejecucion->program_counter);
+		pcb_actualizado = serializar_header(proceso_en_ejecucion);
 		empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, OPERACION_EXIT);
 		break;
 	}
@@ -181,7 +172,7 @@ void ciclo_de_instruccion(pcb* en_ejecucion, int socket_escucha_dispatch){
 		if(cod_op == I_O || cod_op == EXIT)
 			send(socket_escucha_dispatch, &cpu_libre, sizeof(uint32_t), 0);
 		else{
-			pcb_actualizado = serializar_header(en_ejecucion);
+			pcb_actualizado = serializar_header(proceso_en_ejecucion);
 			empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, RESPUESTA_INTERRUPT);
 		}
 		hay_interrupciones--;
