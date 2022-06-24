@@ -113,8 +113,7 @@ void crear_header(uint32_t proximo_pid, void* buffer_instrucciones, t_config* co
 	free(buffer_instrucciones);
 
 	header->program_counter = 0;
-	header->tamanio_paginas = 0;
-	header->tabla_paginas = NULL;
+	header->tabla_paginas = 0;
 	header->estimacion_siguiente = estimacion_inicial;
 	header->timestamp_inicio_exe = 0;
 	header->real_actual = 0;
@@ -199,11 +198,9 @@ t_buffer* serializar_header(pcb* header){
 
 	memcpy(buffer->stream + offset, &header->program_counter, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
-	memcpy(buffer->stream + offset, &header->tamanio_paginas, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
 
-	memcpy(buffer->stream + offset, header->tabla_paginas, header->tamanio_paginas);
-	offset += header->tamanio_paginas;
+	memcpy(buffer->stream + offset, &header->tabla_paginas, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
 
 	memcpy(buffer->stream + offset, &header->estimacion_siguiente, sizeof(float));
 	offset += sizeof(float);
@@ -243,11 +240,8 @@ void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
 	memcpy(&pcb_recibido->program_counter, buffer + offset, sizeof(uint32_t));
 	offset+=sizeof(uint32_t);
 
-	memcpy(&pcb_recibido->tamanio_paginas, buffer + offset, sizeof(uint32_t));
-	offset+=sizeof(uint32_t);
-
-	memcpy(pcb_recibido->tabla_paginas, buffer + offset, pcb_recibido->tamanio_paginas);
-	offset+=pcb_recibido->tamanio_paginas;
+	memcpy(&pcb_recibido->tabla_paginas, buffer + offset, sizeof(uint32_t));
+	offset+= sizeof(uint32_t);
 
 	memcpy(&pcb_recibido->estimacion_siguiente, buffer + offset, sizeof(float));
 	offset+=sizeof(float);
@@ -265,7 +259,6 @@ void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
 }
 
 void liberar_pcb(pcb* pcb){
-	free(pcb->tabla_paginas);
 	free(pcb->instrucciones);
 	free(pcb);
 }

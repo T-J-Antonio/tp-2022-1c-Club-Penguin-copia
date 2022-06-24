@@ -153,7 +153,7 @@ void empaquetar_y_enviar_i_o(t_buffer* buffer, int socket, uint32_t codigo_opera
 
 	// No nos olvidamos de liberar la memoria que ya no usaremos
 	free(a_enviar);
-	//eliminar_paquete(paquete);  hay que hacer un eliminarpaqueteio
+	eliminar_paquete_i_o(paquete);
 }
 
 void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
@@ -199,11 +199,8 @@ void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
 	memcpy(&pcb_recibido->program_counter, buffer + offset, sizeof(uint32_t));
 	offset+=sizeof(uint32_t);
 
-	memcpy(&pcb_recibido->tamanio_paginas, buffer + offset, sizeof(uint32_t));
+	memcpy(&pcb_recibido->tabla_paginas, buffer + offset, sizeof(uint32_t));
 	offset+=sizeof(uint32_t);
-
-	memcpy(pcb_recibido->tabla_paginas, buffer + offset, pcb_recibido->tamanio_paginas);
-	offset+=pcb_recibido->tamanio_paginas;
 
 	memcpy(&pcb_recibido->estimacion_siguiente, buffer + offset, sizeof(float));
 	offset+=sizeof(float);
@@ -261,14 +258,12 @@ t_buffer* serializar_header(pcb* header){
 		offset = serializar_instruccion(buffer, ins, offset);					// Se incrementa el offset para que cuando serializar instruccion tome una nueva instruccion, nos desplacemos y no pisemos la instruccion anterior que serializamos
 	}
 
-	list_iterate(header->instrucciones, _f_aux);									// Cada instruccion en la lista de instrucciones va a realziar la funcion auxiliar
+	list_iterate(header->instrucciones, _f_aux);								// Cada instruccion en la lista de instrucciones va a realziar la funcion auxiliar
 
 	memcpy(buffer->stream + offset, &header->program_counter, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
-	memcpy(buffer->stream + offset, &header->tamanio_paginas, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
 
-	memcpy(buffer->stream + offset, header->tabla_paginas, header->tamanio_paginas);
+	memcpy(buffer->stream + offset, &header->tabla_paginas, sizeof(uint32_t));
 	offset += header->tamanio_paginas;
 
 	memcpy(buffer->stream + offset, &header->estimacion_siguiente, sizeof(float));
@@ -321,9 +316,9 @@ uint32_t obtener_direccion_fisica(uint32_t direccion_logica, uint32_t tabla_pagi
 	}
 	else {
 		uint32_t entrada_tabla_1er_nivel = entrada_tabla_1er_nivel(nro_pagina);
-		//tabla_2do_nivel = primer_acceso_a_memoria(tabla_paginas, entrada_tabla_1er_nivel);
+		uint32_t index_tabla_2do_nivel = primer_acceso_a_memoria(tabla_paginas, entrada_tabla_1er_nivel);
 		uint32_t entrada_tabla_2do_nivel = entrada_tabla_2do_nivel(nro_pagina);
-		//nro_marco = segundo_acceso_a_memoria(tabla_2do_nivel, entrada_tabla_2do_nivel);
+		uint32_t nro_marco = segundo_acceso_a_memoria(index_tabla_2do_nivel, entrada_tabla_2do_nivel);
 		uint32_t desplazamiento = desplazamiento(direccion_logica, nro_pagina);
 		uint32_t direccion_fisica = nro_marco * tamanio_pagina + desplazamiento;
 		guardar_en_TLB(nro_pagina, nro_marco);
@@ -342,7 +337,7 @@ void guardar_en_TLB(uint32_t nro_pagina, uint32_t nro_marco) {
 	nueva_entrada->pagina = nro_pagina;
 	nueva_entrada->marco = nro_marco;
 	nueva_entrada->timestamp = (float)time(NULL)*1000;
-	if(queue_size(TLB) < cant_maxima_marcos) { //cant_maxima_marcos se obtiene de memoria.config
+	if(queue_size(TLB) < cantidad_entradas_TLB) {
 		queue_push(TLB, nueva_entrada);
 	}
 	else {
@@ -376,18 +371,16 @@ uint32_t nro_pagina(uint32_t direccion_logica){
 
 uint32_t entrada_tabla_1er_nivel(uint32_t nro_pagina){
 	// la cant. de entradas se solicita a la memoria
-	return nro_pagina / cant_entradas_por_tabla;
+	return nro_pagina / entradas_por_tabla;
 }
 
 uint32_t entrada_tabla_2do_nivel(uint32_t nro_pagina){
-	return nro_pagina % cant_entradas_por_tabla;
+	return nro_pagina % entradas_por_tabla;
 }
 
 uint32_t desplazamiento(uint32_t direccion_logica, uint32_t nro_pagina){
 	return direccion_logica - nro_pagina * tamanio_pagina;
 }
-
-
 
 // Con este algoritmo, buscamos aquella entrada que este hace mas tiempo en la TLB para asi reemplazarla
 void algoritmo_LRU(entrada_tlb* nueva_entrada){
@@ -419,9 +412,76 @@ uint32_t obtener_marco_de_TLB(nro_pagina_a_buscar){
 		entrada_tlb* una_entrada = queue_pop(TLB);
 		if (una_entrada->pagina == nro_pagina_a_buscar){
 			una_entrada->timestamp = (float)time(NULL)*1000;
-			aux = una_entrada->marco;
+			auxiliar_marco = una_entrada->marco;
 		}
 		queue_push(TLB, una_entrada);
 	}
-	return auxiliar_marco; //No deberia ocurrir nunca este return
+	return auxiliar_marco;
+}
+
+uint32_t primer_acceso_a_memoria(uint32_t tabla_paginas, uint32_t entrada_tabla_1er_nivel){
+	uint32_t offset = 0;
+	uint32_t index_tabla_2do_nivel;
+	t_buffer* buffer = malloc(sizeof(t_buffer));
+	buffer->size = 2 * sizeof(uint32_t);
+	buffer->stream = malloc(buffer->size);
+
+	memcpy(buffer->stream + offset, &tabla_paginas, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(buffer->stream + offset, &entrada_tabla_1er_nivel, sizeof(uint32_t));
+
+	empaquetar_y_enviar(buffer, conexion_memoria, ACCESO_A_1RA_TABLA);
+
+	recv(conexion_memoria, &index_tabla_2do_nivel, sizeof(uint32_t), MSG_WAITALL);
+
+	return index_tabla_2do_nivel;
+}
+
+uint32_t segundo_acceso_a_memoria(uint32_t index_tabla_2do_nivel, uint32_t entrada_tabla_2do_nivel){
+	uint32_t offset = 0;
+	uint32_t nro_marco;
+	t_buffer* buffer = malloc(sizeof(t_buffer));
+	buffer->size = 2 * sizeof(uint32_t);
+	buffer->stream = malloc(buffer->size);
+
+	memcpy(buffer->stream + offset, &index_tabla_2do_nivel, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(buffer->stream + offset, &entrada_tabla_2do_nivel, sizeof(uint32_t));
+
+	empaquetar_y_enviar(buffer, conexion_memoria, ACCESO_A_2DA_TABLA);
+
+	recv(conexion_memoria, &nro_marco, sizeof(uint32_t), MSG_WAITALL);
+
+	return nro_marco;
+};
+
+uint32_t leer_posicion_de_memoria(uint32_t direccion_fisica){
+	
+	t_buffer* buffer = malloc(sizeof(t_buffer));
+	buffer->size = sizeof(uint32_t);
+	buffer->stream = malloc(buffer->size);
+
+	memcpy(buffer->stream, &direccion_fisica, sizeof(uint32_t));
+
+	empaquetar_y_enviar(buffer, conexion_memoria, LECTURA_EN_MEMORIA);
+
+	recv(conexion_memoria, &dato_leido, sizeof(uint32_t), MSG_WAITALL);
+
+	return dato_leido;
+}
+
+void escribir_en_posicion_de_memoria(uint32_t direccion_fisica, uint32_t dato_a_escribir){
+	uint32_t offset = 0;
+	uint32_t nro_marco;
+	t_buffer* buffer = malloc(sizeof(t_buffer));
+	buffer->size = 2 * sizeof(uint32_t);
+	buffer->stream = malloc(buffer->size);
+
+	memcpy(buffer->stream + offset, &direccion_fisica, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(buffer->stream + offset, &dato_a_escribir, sizeof(uint32_t));
+
+	empaquetar_y_enviar(buffer, conexion_memoria, ESCRITURA_EN_MEMORIA);
+	
+	recv(conexion_memoria, &nro_marco, sizeof(uint32_t), MSG_WAITALL);
 }

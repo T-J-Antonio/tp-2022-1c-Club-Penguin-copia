@@ -125,6 +125,9 @@ void eliminar_paquete_i_o(t_paquete_i_o*);
 
 //FUNCIONES PROPIAS
 
+//Recibe el algoritmo de reemplazo como string y devuelve el nro. correspondiente
+uint32_t algoritmo_reemplazo_to_int(char*);
+
 void* recibir_buffer(int*, int);
 
 void empaquetar_y_enviar(t_buffer*, int, uint32_t);
@@ -145,7 +148,7 @@ void instruccion_destroyer(void*);
 //Libera el PCB y todos sus punteros asociados
 void liberar_pcb(pcb*);
 
-//FUNCIONES RELACIONADAS CON MMU Y TLB
+//FUNCIONES RELACIONADAS CON MMU
 
 uint32_t obtener_direccion_fisica(uint32_t, uint32_t);
 
@@ -157,10 +160,22 @@ uint32_t entrada_tabla_2do_nivel(uint32_t);
 
 uint32_t desplazamiento(uint32_t, uint32_t);
 
-uint32_t algoritmo_reemplazo_to_int(char*);
+//FUNCIONES PARA COMUNICARSE CON LA MEMORIA
+
+uint32_t primer_acceso_a_memoria(uint32_t, uint32_t);
+
+uint32_t segundo_acceso_a_memoria(uint32_t, uint32_t);
+
+uint32_t leer_posicion_de_memoria(uint32_t);
+
+uint32_t escribir_posicion_en_memoria(uint32_t, uint32_t);
+
+//FUNCIONES RELACIONADAS CON TLB
 
 uint32_t esta_en_TLB(uint32_t);
 
 uint32_t guardar_en_TLB(uint32_t, uint32_t);
 
 uint32_t obtener_marco_de_TLB(uint32_t);
+
+void algoritmo_LRU(entrada_tlb*);

@@ -43,7 +43,7 @@ void* escuchar_consola(int socket_kernel_escucha, t_config* config){
 
 
 
-void* funcion_pasar_a_ready(void* nada){ //necesita un hilo
+void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la peticion para que arme las tablas de paginas y me retorne el index
 	bool valor;
 	pcb* proceso = malloc(sizeof(pcb));
 	while(1){

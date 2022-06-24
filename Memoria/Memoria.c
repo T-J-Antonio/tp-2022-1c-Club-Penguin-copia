@@ -8,10 +8,14 @@ int tam_memoria;
 int tam_pagina;
 int entradas_por_tabla;
 int retardo_swap;
+int cliente_cpu;
+int cliente_kernel;
+void* espacio_memoria_user;
 
-t_list* lista_de_tablas_de_primer_nivel;
-t_list* lista_de_tablas_de_segundo_nivel;
+t_list* lista_global_de_tablas_de_1er_nivel;
+t_list* lista_global_de_tablas_de_2do_nivel;
 t_dict* diccionario_pid;
+
 int main(){
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/Memoria/memoria.config");
 	logger = log_create("log.log", "Servidor", 1, LOG_LEVEL_DEBUG);
@@ -25,8 +29,7 @@ int main(){
 	retardo_swap = config_get_int_value(config, "RETARDO_SWAP");
 	diccionario_pid = dictionary_create();
 
-
-	int socket_cpu_escucha = iniciar_servidor(ip_memoria, puerto_escucha);
+	int socket_memoria_escucha = iniciar_servidor(ip_memoria, puerto_escucha);
 
 	log_info(logger, "memoria lista para recibir al request");
 	pthread_t socket_escucha_memoria;
@@ -42,21 +45,66 @@ int main(){
 	return 0;
 }
 
-void* atender_cpu(void* input){
-	int* cliente_fd = (int *) input;
-	//aca hay que mandarle al cpu los parametros de la memoria que necesiten para los calculos y atender cualquier msg de la cpu tam pagina y cant de entradas por tabla
-	int respuesta_generica = 10;
+void* atender_cpu(void* nada){
+	// envíos iniciales de datos necesarios para el CPU
+	send(cliente_cpu, &tam_pagina, sizeof(uint32_t), 0);
+	send(cliente_cpu, &entradas_por_tabla, sizeof(uint32_t), 0);
+
+	uint32_t tabla_paginas;
+	uint32_t entrada_tabla_1er_nivel;
+	uint32_t index_tabla_2do_nivel;
+	uint32_t entrada_tabla_2do_nivel;
+	uint32_t marco;
+	uint32_t dato_leido;
+	uint32_t dato_a_escribir;
+	uint32_t direccion_fisica;
+
 	while(1){
-		int codigo_de_paquete = recibir_operacion(*cliente_fd);
+		int codigo_de_paquete = recibir_operacion(*cliente_cpu);
 		switch(codigo_de_paquete) {
-		case MENSAJE_ESTANDAR:
-			send(cliente_fd, &respuesta_generica, sizeof(int), 0);
+		case ACCESO_A_1RA_TABLA:
+			recv(cliente_cpu, &tabla_paginas, sizeof(uint32_t), 0);
+			recv(cliente_cpu, &entrada_tabla_1er_nivel, sizeof(uint32_t), 0);
+			index_tabla_2do_nivel = respuesta_a_pregunta_de_2do_acceso(tabla_paginas, entrada_tabla_1er_nivel);
+			send(cliente_cpu, &index_tabla_2do_nivel, sizeof(int), 0);
 			break;
+
+		case ACCESO_A_2DA_TABLA:
+			recv(cliente_cpu, &index_tabla_2do_nivel, sizeof(uint32_t), 0);
+			recv(cliente_cpu, &entrada_tabla_2do_nivel, sizeof(uint32_t), 0);
+			marco = respuesta_a_pregunta_de_2do_acceso(index_tabla_2do_nivel, entrada_tabla_2do_nivel);
+			send(cliente_cpu, &marco, sizeof(uint32_t), 0);
+			break;
+
+		case LECTURA_EN_MEMORIA:
+			//Hay que corroborar si lo que quiere leer el proceso es una seccion de memoria perteneciente al mismo
+			recv(cliente_cpu, &direccion_fisica, sizeof(uint32_t), 0);
+			dato_leido = leer_posicion(direccion_fisica);
+			send(cliente_cpu, &dato_leido, sizeof(uint32_t), 0);
+			break;
+
+		case ESCRITURA_EN_MEMORIA:
+			//Hay que corroborar si en donde quiere escribir el proceso es una seccion de memoria perteneciente al mismo
+			recv(cliente_cpu, &direccion_fisica, sizeof(uint32_t), 0);
+			recv(cliente_cpu, &dato_a_escribir, sizeof(uint32_t), 0);
+			escribir_en_posicion(direccion_fisica, dato_a_escribir);
+			break;
+			
 		}
 	}
 	return NULL;
 }
-	
+
+uint32_t leer_posicion(uint32_t direccion_fisica){
+	uint32_t dato_leido;
+	memcpy(&dato_leido, espacio_memoria_user + direccion_fisica, sizeof(uint32_t));
+	return dato_leido;
+}
+
+void escribir_en_posicion(uint32_t direccion_fisica, uint32_t dato_a_escribir){
+	memcpy(espacio_memoria_user + direccion_fisica, &dato_a_escribir, sizeof(uint32_t));
+}
+
 void* atender_kernel(void* input){
 	int* cliente_fd = (int *) input;
 	// atender cualquier msg del kernel
@@ -78,19 +126,19 @@ void* atender_kernel(void* input){
 	return NULL;
 }
 
-void* escuchar(int socket_escucha_memoria){
+void* escuchar(int socket_memoria_escucha){
 
 	pthread_t thread_type;
-	int cliente_fd = esperar_cliente(socket_kernel_escucha);
-	pthread_create(&thread_type, NULL, atender_cpu, (void*) &cliente_fd );
+	cliente_cpu = esperar_cliente(socket_memoria_escucha);
+	pthread_create(&thread_type, NULL, atender_cpu, (void*) &cliente_cpu );
 
-	int kernel_conexion = esperar_cliente(socket_memoria_memoria);
+	cliente_kernel = esperar_cliente(socket_memoria_escucha);
 	pthread_t thread_kernel;
-	pthread_create(&thread_kernel, NULL, atender_cpu, (void*) &cliente_fd );
+	pthread_create(&thread_kernel, NULL, atender_cpu, (void*) &cliente_kernel );
  	return NULL;
 }
 
-void crear_tablas_de_2do_nivel(int cantidad_de_entradas_de_paginas_2do_nivel, t_list* lista_de_tablas_de_primer_nivel){
+void crear_tablas_de_2do_nivel(int cantidad_de_entradas_de_paginas_2do_nivel, t_list* tabla_de_1er_nivel){
 	int iterador = 0;
 	int contador = 0;
 	uint32_t cantidad_de_entradas_de_paginas_1er_nivel = cantidad_de_entradas_de_paginas_2do_nivel / entradas_por_tabla;
@@ -111,8 +159,8 @@ void crear_tablas_de_2do_nivel(int cantidad_de_entradas_de_paginas_2do_nivel, t_
 			list_add(lista_de_paginas_2do_nivel, pagina);
 		}
 		uint32_t index = list_size(lista_de_tablas_2do_nivel);
-		list_add(lista_de_tablas_2do_nivel, lista_de_paginas_2do_nivel);
-		list_add(lista_de_tablas_de_primer_nivel, &index);
+		list_add(lista_global_de_tablas_de_2do_nivel, lista_de_paginas_2do_nivel);
+		list_add(tabla_de_1er_nivel, &index);
 		iterador++;
 	}
 }
@@ -125,19 +173,20 @@ uint32_t crear_proceso(int tamanio_en_memoria, int pid){
 	}
 	t_list* lista_1er_nivel_proceso = list_create();
 	crear_tablas_de_2do_nivel(cantidad_de_entradas_de_paginas_2do_nivel, lista_1er_nivel_proceso);
-	uint32_t tabla_pags = list_size(tablas_1er_nivel); // retornar el index de la tabla de paginas al kernel para que se agregue a la pcb
-	list_add(tablas_1er_nivel, lista_1er_nivel_proceso);
+	uint32_t tabla_pags = list_size(lista_global_de_tablas_de_1er_nivel); // retornar el index de la tabla de paginas al kernel para que se agregue a la pcb
+	list_add(lista_global_de_tablas_de_1er_nivel, lista_1er_nivel_proceso);
 	dict_add(diccionario_pid, &tabla_pags, &pid);
 	return tabla_pags;
 }
 
 
 int suspender_proceso(int index_tabla){
-	t_list * tabla_1er_nivel = list_get(tablas_1er_nivel, index_tabla);
+	t_list * tabla_1er_nivel = list_get(tabla_global_1er_nivel, index_tabla);
 	int tamanio_lista = list_size(tabla_1er_nivel);
 	int iterator = 0;
 	while(iterador <= tamanio_lista){
-		t_list * tabla_2do_nivel = list_get(tabla_1er_nivel, iterator); // aca hay que corregir esto, lista 1 es una lista de ints no una lista de listas
+		int index_2da = list_get(tabla_1er_nivel, iterator);
+		t_list * tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_2da); // aca hay que corregir esto, lista 1 es una lista de ints no una lista de listas
 		int tamanio_lista_2do_nivel = list_size(tabla_2do_nivel);
 		int iterator_2do_nivel = 0;
 		while(iterator_2do_nivel <= tamanio_lista_2do_nivel){
@@ -156,10 +205,11 @@ int suspender_proceso(int index_tabla){
 }
 
 int eliminar_proceso(int index_tabla){
-	t_list* tabla_1er_nivel = list_get(tablas_1er_nivel, index_tabla);
+	t_list* tabla_1er_nivel = list_get(lista_global_de_tablas_de_1er_nivel, index_tabla);
 	int tamanio_lista = list_size(tabla_1er_nivel);
 	int iterator = 0;
 	while(iterator <= tamanio_lista){
+		int index_2da = list_get(tabla_1er_nivel, iterator);
 		t_list* tabla_2do_nivel = list_get(tabla_1er_nivel, iterator);
 		int tamanio_lista_2do_nivel = list_size(tabla_2do_nivel);
 		int iterator_2do_nivel = 0;
@@ -177,13 +227,13 @@ int eliminar_proceso(int index_tabla){
 
 
 int respuesta_a_pregunta_de_1er_acceso(int index_tabla, int entrada){
-	t_list* tabla_1er_nivel = list_get(tablas_1er_nivel, index_tabla);
+	t_list* tabla_1er_nivel = list_get(lista_global_de_tablas_de_1er_nivel, index_tabla);
 	int index_tabla_2do_nivel = list_get(tabla_1er_nivel, entrada);
 	return index_tabla_2do_nivel;
 }
 
 int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada){
-	t_list* tabla_2do_nivel = list_get(tablas_globales_2do_nivel, index_tabla);
+	t_list* tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_tabla);
 	tabla_de_segundo_nivel* dato = list_get(tabla_2do_nivel, entrada); //cambiar el nombre de el struct
 	if(dato->bit_presencia == 1){
 		return dato->marco;

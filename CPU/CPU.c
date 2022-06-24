@@ -3,6 +3,10 @@
 void* escuchar_kernel(int, t_config*);
 void* escuchar_interrupciones(int, t_config*);
 void ciclo_de_instruccion(pcb*, int);
+uint32_t tamanio_pagina;
+uint32_t entradas_por_tabla;
+uint32_t conexion_memoria;
+uint32_t cantidad_entradas_TLB;
 
 int main(){
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/CPU/CPU.config");
@@ -10,12 +14,17 @@ int main(){
 	logger = log_create("log.log", "Servidor", 1, LOG_LEVEL_DEBUG);
 
 	char* ip_cpu = config_get_string_value(config, "IP_CPU");
+	char* ip_memoria = config_get_string_value(config, "IP_MEMORIA");
 	char* puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA_DISPATCH");
 	char* puerto_escucha_interrupt = config_get_string_value(config, "PUERTO_ESCUCHA_INTERRUPT");
+	char* puerto_memoria = config_get_string_value(config, "PUERTO_MEMORIA");
+	cantidad_entradas_TLB = config_get_int_value(config, "ENTRADAS_TLB");
 	tiempo_espera = config_get_int_value(config, "RETARDO_NOOP") / 1000;
 	algoritmo_reemplazo_TLB = algoritmo_reemplazo_to_int(config_get_string_value(config, "REEMPLAZO_TLB"));
 
-/* ====== Aca iria la conexion con memoria, para que me pase ademas el tamanio_pagina y cant_entradas_por_tabla ====== */
+	conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
+	recv(conexion_memoria, &tamanio_pagina, sizeof(uint32_t), MSG_WAITALL);
+	recv(conexion_memoria, &entradas_por_tabla, sizeof(uint32_t), MSG_WAITALL);
 
 	TLB = queue_create();
 
@@ -112,7 +121,7 @@ void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
 void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch){
 	int tiempo_bloqueo = 0;
 	t_buffer* pcb_actualizado = NULL;
-	uint32_t direccion_fisica;
+	uint32_t direccion_fisica, dato_leido;
 
 	//fetch
 	instruccion* instruccion_a_ejecutar = list_get(proceso_en_ejecucion->instrucciones, proceso_en_ejecucion->program_counter);
@@ -123,7 +132,7 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 	//fetch operands
 	if(cod_op == COPY) {
 		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[1], proceso_en_ejecucion->tabla_paginas); 
-		//dato = leer_posicion_de_memoria(direccion_fisica);
+		dato_leido = leer_posicion_de_memoria(direccion_fisica);
 	}
 
 	//execute
@@ -142,19 +151,19 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 
 	case READ:
 		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas);
-		//dato = leer_posicion_de_memoria(direccion_fisica);
-		//printf("%d", dato);
+		dato_leido = leer_posicion_de_memoria(direccion_fisica);
+		printf("El dato leido es: %d\n", dato_leido);
 		break;
 	case WRITE:
 		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas);
-		//escribir_en_posicion_de_memoria(direccion_fisica, instruccion_a_ejecutar->parametros[1]);
+		escribir_en_posicion_de_memoria(direccion_fisica, instruccion_a_ejecutar->parametros[1]);
 		break;
 	case COPY:
 		// En fetch operands obtuvimos la direccion fisica con la direccion_logica_origen y despues leimos lo que esta
 		// en esa direccion fisica; ahora obtenemos la direccion fisica de la direccion_logica_destino y despues 
 		// escribimos el dato que leimos en esa direccion
 		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas);
-		//escribir_en_posicion_de_memoria(direccion_fisica, dato);
+		escribir_en_posicion_de_memoria(direccion_fisica, dato_leido);
 		break;
 
 	case EXIT:
