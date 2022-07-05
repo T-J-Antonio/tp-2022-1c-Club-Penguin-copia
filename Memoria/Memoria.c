@@ -16,6 +16,17 @@ t_list* lista_global_de_tablas_de_1er_nivel;
 t_list* lista_global_de_tablas_de_2do_nivel;
 t_dict* diccionario_pid;
 
+//cosas a tener en cuenta: Deberia ser lo ultimo para terminar el TP aparte de mejorar la gestion de memoria en kernel y cpu, aunque en cpu y kernel no mucho ya que cpu tiene solo un proceso, no deberia usar mucha mem. 
+// y kernel solo debe borrar lo administrativo al final de un proceso ya que de la forma que esta el codigo nos evitamos tener multilpes estructuras administrativas clonadas solo controlar que no pase que las mismas se generen multiples veces
+// Hay que tener una estructura auxiliar, por proceso para gestionar el algoritmo de reemplazo y saber que marcos pertenecen a cada proceso
+// Tambien tiene que haber una especie de mapa con los marcos libres para manejarlos facilmente y no recorrer mucho buscandolos
+// Hay que armar el swap y ser capaces de escribir ahi con mmap
+// Y faltan los remplazos + toda la liberacion de memoria
+// Tenemos que ser capaces de volcar todo a swap en caso de que un proceso se suspenda y remover esas estructuras administrativas, 
+// luego cuando se pase a ready no hay que recibir ninguna noti simplemente se carga lo necesario a memoria, la estructura aparte hay que vaciarla pero en si no matarla hasta que el proceso finalice
+
+
+
 int main(){
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/Memoria/memoria.config");
 	logger = log_create("log.log", "Servidor", 1, LOG_LEVEL_DEBUG);
@@ -65,26 +76,26 @@ void* atender_cpu(void* nada){
 		case ACCESO_A_1RA_TABLA:
 			recv(cliente_cpu, &tabla_paginas, sizeof(uint32_t), 0);
 			recv(cliente_cpu, &entrada_tabla_1er_nivel, sizeof(uint32_t), 0);
-			index_tabla_2do_nivel = respuesta_a_pregunta_de_2do_acceso(tabla_paginas, entrada_tabla_1er_nivel);
+			index_tabla_2do_nivel = respuesta_a_pregunta_de_1er_acceso(tabla_paginas, entrada_tabla_1er_nivel);
 			send(cliente_cpu, &index_tabla_2do_nivel, sizeof(int), 0);
 			break;
 
 		case ACCESO_A_2DA_TABLA:
 			recv(cliente_cpu, &index_tabla_2do_nivel, sizeof(uint32_t), 0);
 			recv(cliente_cpu, &entrada_tabla_2do_nivel, sizeof(uint32_t), 0);
-			marco = respuesta_a_pregunta_de_2do_acceso(index_tabla_2do_nivel, entrada_tabla_2do_nivel);
+			marco = respuesta_a_pregunta_de_2do_acceso(index_tabla_2do_nivel, entrada_tabla_2do_nivel); //aca si fue necesario reemplazar un marco hay que avisarle a la tlb
 			send(cliente_cpu, &marco, sizeof(uint32_t), 0);
 			break;
 
 		case LECTURA_EN_MEMORIA:
-			//Hay que corroborar si lo que quiere leer el proceso es una seccion de memoria perteneciente al mismo
+			//Hay que corroborar si lo que quiere leer el proceso es una seccion de memoria perteneciente al mismo?
 			recv(cliente_cpu, &direccion_fisica, sizeof(uint32_t), 0);
 			dato_leido = leer_posicion(direccion_fisica);
 			send(cliente_cpu, &dato_leido, sizeof(uint32_t), 0);
 			break;
 
 		case ESCRITURA_EN_MEMORIA:
-			//Hay que corroborar si en donde quiere escribir el proceso es una seccion de memoria perteneciente al mismo
+			//Hay que corroborar si en donde quiere escribir el proceso es una seccion de memoria perteneciente al mismo?
 			recv(cliente_cpu, &direccion_fisica, sizeof(uint32_t), 0);
 			recv(cliente_cpu, &dato_a_escribir, sizeof(uint32_t), 0);
 			escribir_en_posicion(direccion_fisica, dato_a_escribir);
@@ -117,7 +128,7 @@ void* atender_kernel(void* input){
 		int P_aux;
 		switch(codigo_de_paquete) {
 		case CREAR_PROCESO:
-			tam_mem = recibir_operacion(*cliente_fd);
+			tam_mem = recibir_operacion(*cliente_fd); //aca hay que recibir mas cosas minimo entiendo q el pid para usarlo en el swap, y armar el swap
 			p_aux = crear_proceso(tam_mem);
 			send(cliente_fd, &p_aux, sizeof(int), 0);
 			break;

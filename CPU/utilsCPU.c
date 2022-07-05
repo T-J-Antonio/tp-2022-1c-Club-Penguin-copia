@@ -310,18 +310,20 @@ uint32_t obtener_direccion_fisica(uint32_t direccion_logica, uint32_t tabla_pagi
 	uint32_t nro_pagina = nro_pagina(direccion_logica);
 
 	if(esta_en_TLB(nro_pagina)) {
-		uint32_t marco = obtener_marco_de_TLB(nro_pagina);
+		uint32_t marco = obtener_marco_de_TLB(nro_pagina); //hay que marcarle un nuevo timestamp a la tlb ya que se referencio denuevo
 		uint32_t desplazamiento = desplazamiento(direccion_logica, nro_pagina);
 		uint32_t direccion_fisica = nro_marco * tamanio_pagina + desplazamiento; // Tamanio pagina viene desde memoria.config
 	}
 	else {
 		uint32_t entrada_tabla_1er_nivel = entrada_tabla_1er_nivel(nro_pagina);
 		uint32_t index_tabla_2do_nivel = primer_acceso_a_memoria(tabla_paginas, entrada_tabla_1er_nivel);
+		
 		uint32_t entrada_tabla_2do_nivel = entrada_tabla_2do_nivel(nro_pagina);
-		uint32_t nro_marco = segundo_acceso_a_memoria(index_tabla_2do_nivel, entrada_tabla_2do_nivel);
+		uint32_t nro_marco = segundo_acceso_a_memoria(index_tabla_2do_nivel, entrada_tabla_2do_niveln, nro_pagina);
+	
 		uint32_t desplazamiento = desplazamiento(direccion_logica, nro_pagina);
 		uint32_t direccion_fisica = nro_marco * tamanio_pagina + desplazamiento;
-		guardar_en_TLB(nro_pagina, nro_marco);
+		//guardar_en_TLB(nro_pagina, nro_marco); aca hay que tener cuidado ya que si la actualizo, no deberia guardar porque seria al dope esto se comenta y se delega ala func 2do acceso ya que podemos hacerlo de ahi y facilitar la logica
 	}
 
 	return direccion_fisica;
@@ -334,12 +336,15 @@ uint32_t algoritmo_reemplazo_to_int(char* str){
 
 void guardar_en_TLB(uint32_t nro_pagina, uint32_t nro_marco) {
 	entrada_tlb* nueva_entrada = malloc(sizeof(entrada_tlb));
+	
 	nueva_entrada->pagina = nro_pagina;
 	nueva_entrada->marco = nro_marco;
 	nueva_entrada->timestamp = (float)time(NULL)*1000;
+	
 	if(queue_size(TLB) < cantidad_entradas_TLB) {
 		queue_push(TLB, nueva_entrada);
 	}
+	
 	else {
 		switch(algoritmo_reemplazo_TLB)
 		{
@@ -358,10 +363,21 @@ uint32_t esta_en_TLB(uint32_t nro_pagina){
 	for(uint32_t i = 0; i < queue_size(TLB); i++){
 		entrada_tlb* una_entrada = queue_pop(TLB);
 		if (una_entrada->pagina == nro_pagina)
+			una_entrada->timestamp = (float)time(NULL)*1000;
 			se_encontro = 1;
 		queue_push(TLB, una_entrada);
 	}
 	return se_encontro;
+}
+
+void actualizar_TLB(uint32_t nro_pagina, uint32_t nro_marco){
+	for(uint32_t i = 0; i < queue_size(TLB); i++){
+		entrada_tlb* una_entrada = queue_pop(TLB);
+		if (una_entrada->nro_marco == nro_marco)
+			una_entrada->pagina = nro_pagina;
+			una_entrada->timestamp = (float)time(NULL)*1000;
+		queue_push(TLB, una_entrada);
+	}
 }
 
 uint32_t nro_pagina(uint32_t direccion_logica){
@@ -437,9 +453,11 @@ uint32_t primer_acceso_a_memoria(uint32_t tabla_paginas, uint32_t entrada_tabla_
 	return index_tabla_2do_nivel;
 }
 
-uint32_t segundo_acceso_a_memoria(uint32_t index_tabla_2do_nivel, uint32_t entrada_tabla_2do_nivel){
+uint32_t segundo_acceso_a_memoria(uint32_t index_tabla_2do_nivel, uint32_t entrada_tabla_2do_nivel, uint32_t nro_pagina){
 	uint32_t offset = 0;
 	uint32_t nro_marco;
+	uint32_t reemplazada = 0;
+
 	t_buffer* buffer = malloc(sizeof(t_buffer));
 	buffer->size = 2 * sizeof(uint32_t);
 	buffer->stream = malloc(buffer->size);
@@ -450,7 +468,15 @@ uint32_t segundo_acceso_a_memoria(uint32_t index_tabla_2do_nivel, uint32_t entra
 
 	empaquetar_y_enviar(buffer, conexion_memoria, ACCESO_A_2DA_TABLA);
 
-	recv(conexion_memoria, &nro_marco, sizeof(uint32_t), MSG_WAITALL);
+	uint32_t codigo = recibir_operacion(conexion_memoria);
+	if (codigo == ACCESO_A_2DA_TABLA){
+		recv(conexion_memoria, &nro_marco, sizeof(uint32_t), MSG_WAITALL);
+		guardar_en_TLB(nro_pagina, nro_marco);
+	}
+	else if (codigo == REEMPLAZO_DE_PAGINA){
+		recv(conexion_memoria, &nro_marco, sizeof(uint32_t), MSG_WAITALL);
+		actualizar_TLB(nro_pagina, nro_marco);
+	}		
 
 	return nro_marco;
 };

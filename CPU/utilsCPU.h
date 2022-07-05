@@ -176,6 +176,8 @@ uint32_t esta_en_TLB(uint32_t);
 
 uint32_t guardar_en_TLB(uint32_t, uint32_t);
 
+uint32_t actualizar_TLB(uint32_t, uint32_t);
+
 uint32_t obtener_marco_de_TLB(uint32_t);
 
 void algoritmo_LRU(entrada_tlb*);
