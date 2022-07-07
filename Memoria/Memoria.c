@@ -11,21 +11,41 @@ int retardo_swap;
 int cliente_cpu;
 int cliente_kernel;
 void* espacio_memoria_user;
+int marcos_por_proceso;
+char* path_swap;
 
 t_list* lista_global_de_tablas_de_1er_nivel;
 t_list* lista_global_de_tablas_de_2do_nivel;
 t_dict* diccionario_pid;
+t_dict* diccionario_marcos;
+t_dict* diccionario_swap;
+uint32_t* estado_de_marcos;
+
+
+typedef struct{
+	uint32_t offset;
+	uint32_t* marcos_asignados; // importante al ser un puntero no inicializado tener cuidado al trabajarlo, si no se inicializa, se trabaja como un puntero nulo. malloc anda pero realloc puede romper.
+} estructura_administrativa_de_marcos;
 
 //cosas a tener en cuenta: Deberia ser lo ultimo para terminar el TP aparte de mejorar la gestion de memoria en kernel y cpu, aunque en cpu y kernel no mucho ya que cpu tiene solo un proceso, no deberia usar mucha mem. 
 // y kernel solo debe borrar lo administrativo al final de un proceso ya que de la forma que esta el codigo nos evitamos tener multilpes estructuras administrativas clonadas solo controlar que no pase que las mismas se generen multiples veces
-// Hay que tener una estructura auxiliar, por proceso para gestionar el algoritmo de reemplazo y saber que marcos pertenecen a cada proceso
-// Tambien tiene que haber una especie de mapa con los marcos libres para manejarlos facilmente y no recorrer mucho buscandolos
+
+// Hay que tener una estructura auxiliar, por proceso para gestionar el algoritmo de reemplazo y saber que marcos pertenecen a cada proceso HECHOOOO!!!
+// Tambien tiene que haber una especie de mapa con los marcos libres para manejarlos facilmente y no recorrer mucho buscandolos HECHOOOO!!!
+
 // Hay que armar el swap y ser capaces de escribir ahi con mmap
-// Y faltan los remplazos + toda la liberacion de memoria
+
+// Y faltan los ALGOS DE remplazo + toda la liberacion de memoria
 // Tenemos que ser capaces de volcar todo a swap en caso de que un proceso se suspenda y remover esas estructuras administrativas, 
-// luego cuando se pase a ready no hay que recibir ninguna noti simplemente se carga lo necesario a memoria, la estructura aparte hay que vaciarla pero en si no matarla hasta que el proceso finalice
+// luego cuando se pase a ready hay que recibir ninguna noti para cargar lo necesario a memoria
 
+// para la lista de marcos usados por proceso voy a hacer un dict con el pid y un struct que tenga el vector para meter marcos, el vector usa -1 si es posicion libre o el num de marco si posee y su espacio se inicializa con tam int * marcos por proceso,
+// y tambien el puntero "offset" que usaremos para los algoritmos de reemplazo
+// la lista total de marcos libres es mas facil le hago un vector de bitmap 
+// cuando se suspende un proceso se debe vaciar la lista de marcos usados por ese proceso y pasarlos a libres en el total, en caso de eliminar aparte deberiamos destruir la estructura de marcos usados por ese proceso
+// una f aux liberar marcos es util toma el pid y maneja el vaciado.
 
+// no olvidar los retardos pedidos para el swap y memoria
 
 int main(){
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/Memoria/memoria.config");
@@ -36,9 +56,21 @@ int main(){
 
 	tam_memoria = config_get_int_value(config, "TAM_MEMORIA");
 	tam_pagina = config_get_int_value(config, "TAM_PAGINA");
+	int cantidad_de_marcos_totales = tam_memoria / tam_pagina;
+
+	estado_de_marcos = malloc(sizeof(uint32_t) * cantidad_de_marcos_totales); //1 es libre, 0 es ocupado. Esto no es de suma utilidad es solo mas conceptual al principio para tomar de aca el primer marco que encuentre libre para darselo a un proceso luego los reemplazos son locales y no vamos a tener un grado de multi que sea conflictivo con esto.
+	for(int i = 0; i < cantidad_de_marcos_totales; i++){
+		estado_de_marcos[i] = 1;
+	}
+
+	path_swap = config_get_string_value(config, "PATH_SWAP");
+	marcos_por_proceso = config_get_int_value(config, "MARCOS_POR_PROCESO");
+
 	entradas_por_tabla = config_get_int_value(config, "ENTRADAS_POR_TABLA");
 	retardo_swap = config_get_int_value(config, "RETARDO_SWAP");
 	diccionario_pid = dictionary_create();
+	diccionario_marcos = dictionary_create();
+	diccionario_swap = dictionary_create();
 
 	int socket_memoria_escucha = iniciar_servidor(ip_memoria, puerto_escucha);
 
@@ -80,7 +112,7 @@ void* atender_cpu(void* nada){
 			send(cliente_cpu, &index_tabla_2do_nivel, sizeof(int), 0);
 			break;
 
-		case ACCESO_A_2DA_TABLA:
+		case ACCESO_A_2DA_TABLA: //voy a tener que recibir el pid tmb para facilitar el reemplazo bastante
 			recv(cliente_cpu, &index_tabla_2do_nivel, sizeof(uint32_t), 0);
 			recv(cliente_cpu, &entrada_tabla_2do_nivel, sizeof(uint32_t), 0);
 			marco = respuesta_a_pregunta_de_2do_acceso(index_tabla_2do_nivel, entrada_tabla_2do_nivel); //aca si fue necesario reemplazar un marco hay que avisarle a la tlb
@@ -132,6 +164,13 @@ void* atender_kernel(void* input){
 			p_aux = crear_proceso(tam_mem);
 			send(cliente_fd, &p_aux, sizeof(int), 0);
 			break;
+		case DESTRUIR_PROCESO:
+
+		break;
+
+		case REANUDAR_PROCESO:
+
+		break;
 		}
 	}
 	return NULL;
@@ -176,30 +215,87 @@ void crear_tablas_de_2do_nivel(int cantidad_de_entradas_de_paginas_2do_nivel, t_
 	}
 }
 
-uint32_t crear_proceso(int tamanio_en_memoria, int pid){
-	crear_swap(pid);
-	uint32_t cantidad_de_entradas_de_paginas_2do_nivel = tamanio_en_memoria / tam_pagina;
-	if((tamanio_en_memoria % tam_pagina) > 0){
-		cantidad_de_entradas_de_paginas_2do_nivel++;
-	}
-	t_list* lista_1er_nivel_proceso = list_create();
-	crear_tablas_de_2do_nivel(cantidad_de_entradas_de_paginas_2do_nivel, lista_1er_nivel_proceso);
-	uint32_t tabla_pags = list_size(lista_global_de_tablas_de_1er_nivel); // retornar el index de la tabla de paginas al kernel para que se agregue a la pcb
-	list_add(lista_global_de_tablas_de_1er_nivel, lista_1er_nivel_proceso);
-	dict_add(diccionario_pid, &tabla_pags, &pid);
-	return tabla_pags;
+
+void crear_swap(int pid, int cantidad_de_marcos){
+
+	if ((swp_file = open (path_swap, O_RDWR | O_CREAT | O_TRUNC, mode )) < 0){
+		printf ("can't create swap file\n");
+   	}
+	double tam = cantidad_de_marcos * tam_pagina;
+ 	if ((swap_map = mmap (0, tam, PROT_READ | PROT_WRITE, MAP_SHARED, swp_file, 0)) == (caddr_t) -1){
+		printf ("mmap error for output");
+   	}
+	dict_add(diccionario_swap, &pid, swap_map);
+}
+
+void volcar_pagina_en_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
+	void* swap_map = dict_get(diccionario_swap, &pid);
+	memcpy(swap_map + dezplazamiento, dato, tam_pagina);
+}
+
+void leer_pagina_de_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
+	void* swap_map = dict_get(diccionario_swap, &pid);
+	memcpy(dato, swap_map + dezplazamiento, tam_pagina);
+}
+
+void eliminar_swap(uint32_t pid){
+	void* swap_map = dict_get(diccionario_swap, &pid);
+	munmap(swap_map, tam_pagina * cantidad_de_marcos); //hay que pasarle cantidad de marcos para q borre bien
+	dict_remove(diccionario_swap, &pid);
 }
 
 
+uint32_t crear_proceso(int tamanio_en_memoria, int pid){ // tengo que iniciar las nuevas estrucutras tmb
+	crear_swap(pid);
+	uint32_t cantidad_de_entradas_de_paginas_2do_nivel = tamanio_en_memoria / tam_pagina;
+	
+	if((tamanio_en_memoria % tam_pagina) > 0){
+		cantidad_de_entradas_de_paginas_2do_nivel++;
+	}
+
+	t_list* lista_1er_nivel_proceso = list_create();
+	crear_tablas_de_2do_nivel(cantidad_de_entradas_de_paginas_2do_nivel, lista_1er_nivel_proceso);
+
+	uint32_t tabla_pags = list_size(lista_global_de_tablas_de_1er_nivel); // retornar el index de la tabla de paginas al kernel para que se agregue a la pcb
+	list_add(lista_global_de_tablas_de_1er_nivel, lista_1er_nivel_proceso);
+	dict_add(diccionario_pid, &tabla_pags, &pid);
+
+	estructura_administrativa_de_marcos* admin = malloc(sizeof(estructura_administrativa_de_marcos));
+	admin->offset = 0;
+	admin->marcos_asignados = malloc(sizeof(int) * marcos_por_proceso);
+	dict_add(diccionario_marcos, &pid, admin);
+	
+	return tabla_pags;
+}
+
+void liberar_marcos(int pid){
+	estructura_administrativa_de_marcos* admin = dict_get(diccionario_marcos, &pid);
+	int i;
+	for(i = 0; i < marcos_por_proceso; i++){
+		if(admin->marcos_asignados[i] != -1){
+			estado_de_marcos[i] = 1;
+		}
+	}
+	free(admin->marcos_asignados);
+	dict_remove(diccionario_marcos, &pid);
+	free(admin);
+}
+
 int suspender_proceso(int index_tabla){
+	int pid = *(int*)dict_get(diccionario_pid, &index_tabla);
+
 	t_list * tabla_1er_nivel = list_get(tabla_global_1er_nivel, index_tabla);
+	
 	int tamanio_lista = list_size(tabla_1er_nivel);
 	int iterator = 0;
+	
 	while(iterador <= tamanio_lista){
 		int index_2da = list_get(tabla_1er_nivel, iterator);
 		t_list * tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_2da); // aca hay que corregir esto, lista 1 es una lista de ints no una lista de listas
+	
 		int tamanio_lista_2do_nivel = list_size(tabla_2do_nivel);
 		int iterator_2do_nivel = 0;
+		
 		while(iterator_2do_nivel <= tamanio_lista_2do_nivel){
 			tabla_de_segundo_nivel * pagina = list_get(tabla_2do_nivel, iterator_2do_nivel);
 			if(pagina->bit_modificado == 1){
@@ -212,13 +308,17 @@ int suspender_proceso(int index_tabla){
 		}
 		iterator++;
 	}
+	liberar_marcos(pid);
 	//Responder a kernel un ok;
 }
 
-int eliminar_proceso(int index_tabla){
+int eliminar_proceso(int index_tabla){ //aca hay que destruir las tablas de paginas
+	int pid = *(int*)dict_get(diccionario_pid, &index_tabla);
 	t_list* tabla_1er_nivel = list_get(lista_global_de_tablas_de_1er_nivel, index_tabla);
+
 	int tamanio_lista = list_size(tabla_1er_nivel);
 	int iterator = 0;
+
 	while(iterator <= tamanio_lista){
 		int index_2da = list_get(tabla_1er_nivel, iterator);
 		t_list* tabla_2do_nivel = list_get(tabla_1er_nivel, iterator);
@@ -233,6 +333,7 @@ int eliminar_proceso(int index_tabla){
 		}
 		iterator++;
 	}
+	liberar_marcos(pid);
 	//aca deberiamos matar el swap
 }
 
