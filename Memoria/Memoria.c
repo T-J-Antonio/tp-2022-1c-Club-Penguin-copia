@@ -21,6 +21,10 @@ t_dict* diccionario_marcos;
 t_dict* diccionario_swap;
 uint32_t* estado_de_marcos;
 
+typedef struct{
+	void* swap_map;
+	char* path_swap;
+} swap_struct;
 
 typedef struct{
 	uint32_t offset;
@@ -216,33 +220,56 @@ void crear_tablas_de_2do_nivel(int cantidad_de_entradas_de_paginas_2do_nivel, t_
 }
 
 
-void crear_swap(int pid, int cantidad_de_marcos){
 
-	if ((swp_file = open (path_swap, O_RDWR | O_CREAT | O_TRUNC, mode )) < 0){
+
+
+
+
+
+void crear_swap(int pid, int cantidad_de_marcos){
+	swap_struct* swp = malloc(sizeof(swap_struct));
+
+	
+	swp->path_swap = malloc(strlen(PATH_SWAP) + strlen(string_itoa(pid)) + 1);
+	strcat(swp->path_swap, PATH_SWAP);
+	strcat(swp->path_swap, string_itoa(pid));
+
+	if ((swp_file = open (swp->path_swap, O_RDWR | O_CREAT | O_TRUNC, mode )) < 0){
 		printf ("can't create swap file\n");
    	}
 	double tam = cantidad_de_marcos * tam_pagina;
- 	if ((swap_map = mmap (0, tam, PROT_READ | PROT_WRITE, MAP_SHARED, swp_file, 0)) == (caddr_t) -1){
+ 	if ((swp->swap_map = mmap (0, tam, PROT_READ | PROT_WRITE, MAP_SHARED, swp_file, 0)) == (caddr_t) -1){
 		printf ("mmap error for output");
    	}
-	dict_add(diccionario_swap, &pid, swap_map);
+ 
+	dict_add(diccionario_swap, &pid, swp);
+	fclose(swap_file);
 }
 
 void volcar_pagina_en_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
-	void* swap_map = dict_get(diccionario_swap, &pid);
-	memcpy(swap_map + dezplazamiento, dato, tam_pagina);
+	swap_struct* swap_map = (swap_struct *) dict_get(diccionario_swap, &pid);
+	memcpy(swap_map->swap_map + dezplazamiento, dato, tam_pagina);
 }
 
 void leer_pagina_de_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
-	void* swap_map = dict_get(diccionario_swap, &pid);
-	memcpy(dato, swap_map + dezplazamiento, tam_pagina);
+	swap_struct* swap_map = (swap_struct *) dict_get(diccionario_swap, &pid);
+	memcpy(dato, swap_map->swap_map + dezplazamiento, tam_pagina);
 }
 
-void eliminar_swap(uint32_t pid){
-	void* swap_map = dict_get(diccionario_swap, &pid);
-	munmap(swap_map, tam_pagina * cantidad_de_marcos); //hay que pasarle cantidad de marcos para q borre bien
-	dict_remove(diccionario_swap, &pid);
+void eliminar_swap(uint32_t pid, uint32_t memoria_total){
+	swap_struct* swap_map = (swap_struct *) dict_get(diccionario_swap, &pid);
+	munmap(swap_map->swap_map, memoria_total); 
+	
+	remove(swap_map->swap_map);
+	
+	free(swap_map->path_swap);
+	free(swap_map);
+
 }
+
+
+
+
 
 
 uint32_t crear_proceso(int tamanio_en_memoria, int pid){ // tengo que iniciar las nuevas estrucutras tmb
