@@ -14,6 +14,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <time.h>
+#include <sys/mman.h>
 
 #define OPERACION_ENVIO_INSTRUCCIONES 0
 #define OPERACION_ENVIO_PCB 1
