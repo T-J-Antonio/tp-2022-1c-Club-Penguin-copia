@@ -41,10 +41,11 @@ typedef struct{
 // Tambien tiene que haber una especie de mapa con los marcos libres para manejarlos facilmente y no recorrer mucho buscandolos HECHOOOO!!!
 // Hay que armar el swap y ser capaces de escribir ahi con mmap HECHO!!!
 
-// Y faltan los ALGOS DE remplazo + toda la liberacion de memoria TODO
+// Y faltan los ALGOS DE remplazo Hecho!!!
+// falta liberacion de memoria
 
-// Tenemos que ser capaces de volcar todo a swap en caso de que un proceso se suspenda y remover esas estructuras administrativas, 
-// luego cuando se pase a ready hay que recibir ninguna noti para cargar lo necesario a memoria
+// Tenemos que ser capaces de volcar todo a swap en caso de que un proceso se suspenda y remover esas estructuras administrativas,  HECHOOOO!!!
+// luego cuando se pase a ready hay que recibir ninguna noti para cargar lo necesario a memoria HECHOOOO!!!
 
 // para la lista de marcos usados por proceso voy a hacer un dict con el pid y un struct que tenga el vector para meter marcos, el vector usa -1 si es posicion libre o el num de marco si posee y su espacio se inicializa con tam int * marcos por proceso,
 // y tambien el puntero "offset" que usaremos para los algoritmos de reemplazo
@@ -69,7 +70,7 @@ int main(){
 	for(int i = 0; i < cantidad_de_marcos_totales; i++){
 		estado_de_marcos[i] = 1;
 	}
-
+	espacio_memoria_user = malloc(tam_memoria);
 	path_swap = config_get_string_value(config, "PATH_SWAP");
 	marcos_por_proceso = config_get_int_value(config, "MARCOS_POR_PROCESO");
 
@@ -207,6 +208,7 @@ void* escuchar(int socket_memoria_escucha){
 
 //--------------------------------gestion de swap--------------------------------------------------------------------------------
 
+// aca dentro de leer y escribir puedo meter los delays
 
 void crear_swap(int pid, int cantidad_de_marcos){
 	swap_struct* swp = malloc(sizeof(swap_struct));
@@ -263,18 +265,18 @@ void crear_tablas_de_2do_nivel(int cantidad_de_entradas_de_paginas_2do_nivel, t_
 	if((cantidad_de_entradas_de_paginas_2do_nivel % entradas_por_tabla) > 0){
 		cantidad_de_entradas_de_paginas_1er_nivel++;
 	}
+
 	while(iterador < cantidad_de_entradas_de_paginas_1er_nivel){
 		t_list* lista_de_paginas_2do_nivel = list_create();
-		int i;
-		for(i = 0; i < entradas_por_tabla && contador < cantidad_de_entradas_de_paginas_2do_nivel; i++){
-			contador++;
+		for(int i = 0; i < entradas_por_tabla && contador < cantidad_de_entradas_de_paginas_2do_nivel; i++){
 			tabla_de_segundo_nivel* pagina = malloc(sizeof(tabla_de_segundo_nivel));
 			pagina->marco = -1; // Es -1 ya que no tiene ningun marco asignado el proceso cuando recien se crea
-			pagina->numero_de_pagina = i;
+			pagina->numero_pagina = contador;
 			pagina->bit_presencia = 0;
 			pagina->bit_de_uso = 0;
 			pagina->bit_modificado = 0;
 			list_add(lista_de_paginas_2do_nivel, pagina);
+			contador++;
 		}
 		uint32_t index = list_size(lista_de_tablas_2do_nivel);
 		list_add(lista_global_de_tablas_de_2do_nivel, lista_de_paginas_2do_nivel);
@@ -284,7 +286,16 @@ void crear_tablas_de_2do_nivel(int cantidad_de_entradas_de_paginas_2do_nivel, t_
 }
 
 
-
+uint32_t reanudar_proceso(uint32_t pid){
+	estructura_administrativa_de_marcos* admin = malloc(sizeof(estructura_administrativa_de_marcos));
+	admin->pagina_primer_nivel = tabla_pags;
+	admin->offset = 0;
+	admin->marcos_asignados = malloc(sizeof(int) * marcos_por_proceso);
+	for(int i = 0; i < marcos_por_proceso; i++){
+		admin->marcos_asignados[i] =-1;
+	}
+	dict_add(diccionario_marcos, &pid, admin);
+}
 
 uint32_t crear_proceso(int tamanio_en_memoria, int pid){ // tengo que iniciar las nuevas estrucutras tmb
 	crear_swap(pid);
@@ -343,11 +354,16 @@ int suspender_proceso(int index_tabla){
 		
 		while(iterator_2do_nivel <= tamanio_lista_2do_nivel){
 			tabla_de_segundo_nivel * pagina = list_get(tabla_2do_nivel, iterator_2do_nivel);
-			if(pagina->bit_modificado == 1){
-				// Si esta modificada hay que escribir en swap los cambios
+			if(pagina->bit_modificado == 1 && pagina->bit_presencia == 1){
+				volcar_pagina_en_swap(pid, pagina->numero_pagina * tam_pagina, espacio_memoria_user + (pagina->marco *tam_pagina));
+				pagina->bit_de_uso = 0;
+				pagina->bit_modificado = 0;
+				pagina->bit_presencia = 0;
 			}
-			if(pagina->bit_presencia ==1){
-				// Si esta en memoria hay que liberar el marco
+			else{
+				pagina->bit_de_uso = 0;
+				pagina->bit_modificado = 0;
+				pagina->bit_presencia = 0;
 			}
 			iterator_2do_nivel++;
 		}
@@ -427,13 +443,17 @@ int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pi
 
 	tabla_de_segundo_nivel* dato = (tabla_de_segundo_nivel*) list_get(tabla_2do_nivel, entrada); //cambiar el nombre de el struct
 	if(dato->bit_presencia == 1){
+		dato->bit_de_uso = 1;
 		return dato->marco;
-
-	}//setear correctamente los flags una vez hecha las cosas
+	}
 
 	else{
 		if((int marco = primer_marco_libre_del_proceso(estructura)) == -1){
-			marco_a_asignar = reemplazar_marco(estructura);//falta hacer lo que sigue
+			marco_a_asignar = reemplazar_marco(estructura, pid);//falta hacer lo que sigue
+			dato->marco = marco_a_asignar;
+			dato->bit_presencia = 1;
+			dato->bit_modificado = 0;
+			dato->bit_de_uso = 1;
 		}
 		else{
 			marco_a_asignar = primer_marco_libre();
@@ -442,7 +462,11 @@ int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pi
 			estructura->offset = estructura->offset % marcos_por_proceso;
 			estado_de_marcos[marco_a_asignar] = 0;
 			dato->marco = marco_a_asignar;
+			dato->bit_presencia = 1;
+			dato->bit_modificado = 0;
+			dato->bit_de_uso = 1;
 		} //esto es si tiene marcos disponibles.
+		leer_pagina_de_swap(pid, (tam_pagina * dato->numero_pagina), espacio_memoria_user + (marco_a_asignar * tamanio_pagina));// esto tiene que tener un timer antes de hacerlo
 	}
 	return dato->marco;
 }
@@ -465,20 +489,24 @@ tabla_de_segundo_nivel* retornar_pagina(int indice_pagina, int marco_asignado){
 		}
 	}
 
-
 }
 
-int reemplazar_marco(estructura_administrativa_de_marcos* adm ){ //esto va a tener clock y clock-m
+int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ //esto va a tener clock y clock-m  ESTO VA A RETORNAR EL MARCO QUE SE VA A USAR. LA ASIGNACION LE CORRESPONDE A LA SUPERIOR A ESTA
 
 	if(strcmp(alg_reemplazo, "CLOCK") == 0 ){
-		int iterador = 1;
 		
-		while(true){
+		
+		while(true){ //ojo con loswhile infinitos, deberia siempre llegarle una estructura correcta pero en caso de ser llamado de forma erronea 
 			
 			tabla_de_segundo_nivel* dato = retornar_pagina(adm->pagina_primer_nivel, adm->marcos_asignados[adm->offset]);
 					
 			if(dato->bit_de_uso ==0){
-				//reemplazar
+				dato->bit_presencia = 0; 
+				dato->bit_de_uso = 0;
+				if(dato->bit_modificado){
+					volcar_pagina_en_swap(pid, (dato->numero_pagina * tam_pagina), espacio_memoria_user + (dato->marco * tam_pagina));
+					dato->bit_modificado = 0;
+				}
 				return est->offset;
 			}
 			else{
@@ -489,19 +517,55 @@ int reemplazar_marco(estructura_administrativa_de_marcos* adm ){ //esto va a ten
 		est->offset = est->offset % marcos_por_proceso;
 		}
 	}
-	else{
-		//clock-m
+	else{//aca va CLOCK-M
+		int iterador = 0;
+		while(true){ //ojo con los while infinitos, deberia siempre llegarle una estructura correcta pero en caso de ser llamado de forma erronea no saldria nunca
+			for(int i = 0; i < marcos_por_proceso; i++){
+
+				tabla_de_segundo_nivel* dato = retornar_pagina(adm->pagina_primer_nivel, adm->marcos_asignados[adm->offset]);
+				if((iterador % 2) ==0){
+					if((dato->bit_de_uso ==0) && (dato->bit_modificado == 0)){
+						dato->bit_presencia = 0; 
+						dato->bit_de_uso = 0;
+						if(dato->bit_modificado){
+							volcar_pagina_en_swap(pid, (dato->numero_pagina * tam_pagina), espacio_memoria_user + (dato->marco * tam_pagina));
+							dato->bit_modificado = 0;
+						}
+						return est->offset;
+					}
+				}
+				
+				else{
+					if((dato->bit_de_uso ==0) && (dato->bit_modificado == 1)){
+						dato->bit_presencia = 0; 
+						dato->bit_de_uso = 0;
+						if(dato->bit_modificado){
+							volcar_pagina_en_swap(pid, (dato->numero_pagina * tam_pagina), espacio_memoria_user + (dato->marco * tam_pagina));
+							dato->bit_modificado = 0;
+						}
+						return est->offset;
+					}
+					else{
+						dato->bit_de_uso = 0;
+					}
+				}
+			est->offset++;
+			est->offset = est->offset % marcos_por_proceso;
+			}
+			iterador++;
+		}
 	}
 	
 }
 
-// a lo hora de cargar una pagina podemos cargarla de swap total esta todo en 0 leemos eso y fue asi nos facilitamos la vida
+// a lo hora de cargar una pagina podemos cargarla de swap total esta todo en 0 leemos eso y fue asi nos facilitamos la vida NO SE QUE TANTO SEA VERDAD ESTO CUANDO LLEGUE VEO, ES PARA LA REANUDACION
 
 // definir clock y clock m, por suerte como iteran sobre las estructuras administrativas es mas facil. podria poner el indice a la tabla nivel 1 en la estructura administrativa para facilitarnos la vida.
 
 
-//IMPLEMENTAR EL RETARDO BOLUDO ANTES DE LA RESPUESTA A CPU
+// IMPLEMENTAR EL RETARDO BOLUDO ANTES DE LA RESPUESTA A CPU!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 
 
-//ambos algos recorren las tablas de paginas buscando marcos libres solo que M le da prioridad a los que fueron modificados por sobre los que no para clock m hago un while que si es par busca 00 si es impar busca 01, seteando el flag de uso en 0.
-//hacer una funcion auxiliar que retorne la pagina que tiene un marco asignado.
+// ambos algos recorren las tablas de paginas buscando marcos libres solo que M le da prioridad a los que fueron modificados por sobre los que no para clock m hago un while que si es par busca 00 si es impar busca 01, seteando el flag de uso en 0.
+
+// hacer una funcion auxiliar que retorne la pagina que tiene un marco asignado.

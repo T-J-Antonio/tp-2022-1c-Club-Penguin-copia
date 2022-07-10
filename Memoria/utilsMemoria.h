@@ -65,7 +65,7 @@ typedef struct
 
 typedef struct{
 	uint32_t marco;
-	uint32_t numero_de_pagina;
+	uint32_t numero_pagina;
 	uint32_t bit_presencia;
 	uint32_t bit_de_uso;
 	uint32_t bit_modificado;
