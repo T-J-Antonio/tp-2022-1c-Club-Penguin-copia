@@ -15,6 +15,7 @@
 #include <semaphore.h>
 #include <time.h>
 #include <sys/mman.h>
+#include <fcntl.h>
 
 #define OPERACION_ENVIO_INSTRUCCIONES 0
 #define OPERACION_ENVIO_PCB 1
@@ -80,6 +81,17 @@ typedef struct{
 
 } tabla_de_segundo_nivel;
 
+typedef struct{
+	void* swap_map;
+	char* path_swap;
+} swap_struct;
+
+typedef struct{
+	uint32_t pagina_primer_nivel;
+	uint32_t offset; //numero entero que representa la posicion en el vector siguiente
+	int* marcos_asignados; // importante al ser un puntero no inicializado tener cuidado al trabajarlo, si no se inicializa, se trabaja como un puntero nulo. malloc anda pero realloc puede romper.
+} estructura_administrativa_de_marcos;
+
 t_list* lista_de_tablas_de_primer_nivel;
 //FUNCIONES TRAÍDAS DEL TP0
 
@@ -98,3 +110,7 @@ uint32_t leer_posicion(uint32_t);
 void crear_swap(int, int);
 uint32_t crear_proceso(int, int);
 void* escuchar(int);
+void escribir_en_posicion(uint32_t, uint32_t);
+int reemplazar_marco(estructura_administrativa_de_marcos*, uint32_t);
+int respuesta_a_pregunta_de_1er_acceso(int, int);
+int respuesta_a_pregunta_de_2do_acceso(int, int, uint32_t);

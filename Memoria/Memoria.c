@@ -19,16 +19,7 @@ t_dictionary* diccionario_marcos;
 t_dictionary* diccionario_swap;
 uint32_t* estado_de_marcos;
 
-typedef struct{
-	void* swap_map;
-	char* path_swap;
-} swap_struct;
 
-typedef struct{
-	uint32_t pagina_primer_nivel;
-	uint32_t offset; //numero entero que representa la posicion en el vector siguiente
-	int* marcos_asignados; // importante al ser un puntero no inicializado tener cuidado al trabajarlo, si no se inicializa, se trabaja como un puntero nulo. malloc anda pero realloc puede romper.
-} estructura_administrativa_de_marcos;
 
 //cosas a tener en cuenta: 
 // y kernel solo debe borrar lo administrativo al final de un proceso ya que de la forma que esta el codigo nos evitamos tener multilpes estructuras administrativas clonadas solo controlar que no pase que las mismas se generen multiples veces
@@ -157,19 +148,18 @@ void escribir_en_posicion(uint32_t direccion_fisica, uint32_t dato_a_escribir){
 }
 
 void* atender_kernel(void* input){
-	int* cliente_fd = (int *) input;
+	int cliente_fd = *(int *) input;
 	// atender cualquier msg del kernel
-	int respuesta_generica = 10;
 	
 	
 	while(1){
-		int codigo_de_paquete = recibir_operacion(*cliente_fd);
+		int codigo_de_paquete = recibir_operacion(cliente_fd);
 		int tam_mem;
 		int p_aux;
 		switch(codigo_de_paquete) {
 		case CREAR_PROCESO:
-			tam_mem = recibir_operacion(*cliente_fd); //aca hay que recibir mas cosas minimo entiendo q el pid para usarlo en el swap, y armar el swap
-			uint32_t pid = recibir_operacion(*cliente_fd);
+			tam_mem = recibir_operacion(cliente_fd); //aca hay que recibir mas cosas minimo entiendo q el pid para usarlo en el swap, y armar el swap
+			uint32_t pid = recibir_operacion(cliente_fd);
 			p_aux = crear_proceso(tam_mem, pid);
 			send(cliente_fd, &p_aux, sizeof(int), 0);
 			break;
@@ -215,31 +205,31 @@ void crear_swap(int pid, int cantidad_de_marcos){
 	strcat(swp->path_swap, path_swap);
 	strcat(swp->path_swap, string_itoa(pid));
 	
-	FILE* swp_file = fopen(swp->path_swap, "w"); //abrir con fopen en vez de open, open es la low level call de open pero meh no hay necesidad mas comun el otro hacemos eso en write necesario para el ftruncate que extiende el tamaino
-	double tam = cantidad_de_marcos * tam_pagina;
+	int swp_file = open (swp->path_swap, O_RDWR | O_CREAT | O_TRUNC, 0x0777 );
+	off_t tam = cantidad_de_marcos * tam_pagina;
 	ftruncate(swp_file, tam); //esto lo uso para agrandar el archivo a esa cantidad de bits
  	swp->swap_map = mmap (0, tam, PROT_READ | PROT_WRITE, MAP_SHARED, swp_file, 0);
    	
  
-	dictionary_put(diccionario_swap, &pid, swp);
-	fclose(swp_file);
+	dictionary_put(diccionario_swap, string_itoa(pid), (void*)swp);
+	close(swp_file);
 }
 
 //Dezplazamiento es nro_pag * tam_pag
 
 
 void volcar_pagina_en_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
-	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, &pid);
+	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, string_itoa(pid));
 	memcpy(swap_map->swap_map + dezplazamiento, dato, tam_pagina);
 }
 
 void leer_pagina_de_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
-	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, &pid);
+	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, string_itoa(pid));
 	memcpy(dato, swap_map->swap_map + dezplazamiento, tam_pagina);
 }
 
 void eliminar_swap(uint32_t pid, uint32_t memoria_total){
-	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, &pid);
+	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, string_itoa(pid));
 	munmap(swap_map->swap_map, memoria_total); 
 	
 	remove(swap_map->path_swap);
@@ -291,7 +281,7 @@ void reanudar_proceso(uint32_t pid, uint32_t primera_pag){
 	for(int i = 0; i < marcos_por_proceso; i++){
 		admin->marcos_asignados[i] =-1;
 	}
-	dictionary_put(diccionario_marcos, &pid, admin);
+	dictionary_put(diccionario_marcos, string_itoa(pid),(void*) admin);
 }
 
 uint32_t crear_proceso(int tamanio_en_memoria, int pid){ // tengo que iniciar las nuevas estrucutras tmb
@@ -307,7 +297,7 @@ uint32_t crear_proceso(int tamanio_en_memoria, int pid){ // tengo que iniciar la
 
 	uint32_t tabla_pags = list_size(lista_global_de_tablas_de_1er_nivel); // retornar el index de la tabla de paginas al kernel para que se agregue a la pcb
 	list_add(lista_global_de_tablas_de_1er_nivel, lista_1er_nivel_proceso);
-	dictionary_put(diccionario_pid, &tabla_pags, &pid);
+	dictionary_put(diccionario_pid, string_itoa(tabla_pags), (void*)&pid);
 
 	estructura_administrativa_de_marcos* admin = malloc(sizeof(estructura_administrativa_de_marcos));
 	admin->pagina_primer_nivel = tabla_pags;
@@ -316,13 +306,13 @@ uint32_t crear_proceso(int tamanio_en_memoria, int pid){ // tengo que iniciar la
 	for(int i = 0; i < marcos_por_proceso; i++){
 		admin->marcos_asignados[i] =-1;
 	}
-	dictionary_put(diccionario_marcos, &pid, admin);
+	dictionary_put(diccionario_marcos, string_itoa(pid), (void*)admin);
 	
 	return tabla_pags;
 }
 
 void liberar_marcos(int pid){ //aca no vuelco a swap porque sino complico mas las cosas, tambien tengo que liberar en la estructura grande
-	estructura_administrativa_de_marcos* admin = dictionary_get(diccionario_marcos, &pid);
+	estructura_administrativa_de_marcos* admin = dictionary_get(diccionario_marcos, string_itoa(pid));
 	int i;
 	for(i = 0; i < marcos_por_proceso; i++){
 		if(admin->marcos_asignados[i] != -1){
@@ -330,12 +320,12 @@ void liberar_marcos(int pid){ //aca no vuelco a swap porque sino complico mas la
 		}
 	}
 	free(admin->marcos_asignados);
-	dictionary_remove(diccionario_marcos, &pid);
+	dictionary_remove(diccionario_marcos, string_itoa(pid));
 	free(admin);
 }
 
 void suspender_proceso(int index_tabla){
-	int pid = *(int*)dictionary_get(diccionario_pid, &index_tabla);
+	int pid = *(int*)dictionary_get(diccionario_pid, string_itoa(index_tabla));
 
 	t_list * tabla_1er_nivel = list_get(lista_global_de_tablas_de_1er_nivel, index_tabla);
 	
@@ -343,7 +333,7 @@ void suspender_proceso(int index_tabla){
 	int iterador = 0;
 	
 	while(iterador <= tamanio_lista){
-		int index_2da = list_get(tabla_1er_nivel, iterador);
+		int index_2da = *(int*) list_get(tabla_1er_nivel, iterador);
 		t_list * tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_2da); // aca hay que corregir esto, lista 1 es una lista de ints no una lista de listas
 	
 		int tamanio_lista_2do_nivel = list_size(tabla_2do_nivel);
@@ -371,15 +361,15 @@ void suspender_proceso(int index_tabla){
 }
 
 void eliminar_proceso(int index_tabla){ //aca hay que destruir las tablas de paginas
-	int pid = *(int*)dictionary_get(diccionario_pid, &index_tabla);
+	int pid = *(int*)dictionary_get(diccionario_pid, string_itoa(index_tabla));
 	t_list* tabla_1er_nivel = list_get(lista_global_de_tablas_de_1er_nivel, index_tabla);
 
 	int tamanio_lista = list_size(tabla_1er_nivel);
 	int iterator = 0;
 
 	while(iterator <= tamanio_lista){
-		int index_2da = list_get(tabla_1er_nivel, iterator);
-		t_list* tabla_2do_nivel = list_get(tabla_1er_nivel, iterator);
+		int index_2da = *(int*) list_get(tabla_1er_nivel, iterator);
+		t_list* tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_2da);
 		int tamanio_lista_2do_nivel = list_size(tabla_2do_nivel);
 		int iterator_2do_nivel = 0;
 		while(iterator_2do_nivel <= tamanio_lista_2do_nivel){
@@ -402,14 +392,13 @@ void eliminar_proceso(int index_tabla){ //aca hay que destruir las tablas de pag
 
 int respuesta_a_pregunta_de_1er_acceso(int index_tabla, int entrada){
 	t_list* tabla_1er_nivel = list_get(lista_global_de_tablas_de_1er_nivel, index_tabla);
-	int index_tabla_2do_nivel = list_get(tabla_1er_nivel, entrada);
+	int index_tabla_2do_nivel = *(int*) list_get(tabla_1er_nivel, entrada);
 	return index_tabla_2do_nivel;
 }
 
 
 
 int primer_marco_libre_del_proceso(estructura_administrativa_de_marcos* est){
-	int aux;
 	for(int i =0; i < marcos_por_proceso; i++){
 		if(est->marcos_asignados[est->offset] == -1){
 			return est->offset;
@@ -426,12 +415,13 @@ int primer_marco_libre(){
 	for(int i=0; i< cantidad_de_marcos_totales; i++){
 		if(estado_de_marcos[i]==1) return i;
 	}
+	return -1;
 }
 
 
 int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pid){ // para esto me es mas util recibir el pid del proceso para poder agarrar sus estructuras administrativas
 	t_list* tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_tabla);
-	estructura_administrativa_de_marcos* estructura = (estructura_administrativa_de_marcos*)dictionary_get(diccionario_marcos, &pid);
+	estructura_administrativa_de_marcos* estructura = (estructura_administrativa_de_marcos*)dictionary_get(diccionario_marcos, string_itoa(pid));
 	int marco_a_asignar;
 	int marco;
 	tabla_de_segundo_nivel* dato = (tabla_de_segundo_nivel*) list_get(tabla_2do_nivel, entrada); //cambiar el nombre de el struct
@@ -441,7 +431,7 @@ int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pi
 	}
 
 	else{
-		int marco = primer_marco_libre_del_proceso(estructura);
+		marco = primer_marco_libre_del_proceso(estructura);
 		if(marco == -1){
 			marco_a_asignar = reemplazar_marco(estructura, pid);//falta hacer lo que sigue
 			dato->marco = marco_a_asignar;
@@ -482,6 +472,7 @@ tabla_de_segundo_nivel* retornar_pagina(int indice_pagina, int marco_asignado){
 			}
 		}
 	}
+	return NULL;
 }
 
 int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ //esto va a tener clock y clock-m  ESTO VA A RETORNAR EL MARCO QUE SE VA A USAR. LA ASIGNACION LE CORRESPONDE A LA SUPERIOR A ESTA
