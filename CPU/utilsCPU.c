@@ -239,7 +239,7 @@ uint32_t serializar_instruccion(t_buffer* buffer, instruccion* instruccion, uint
 t_buffer* serializar_header(pcb* header){
 	t_buffer* buffer = malloc(sizeof(t_buffer));
 	uint32_t offset = 0;
-	uint32_t buffer_size = 6*sizeof(uint32_t) + header->tamanio_stream_instrucciones + header->tamanio_paginas + 3*sizeof(float);
+	uint32_t buffer_size = 7*sizeof(uint32_t) + header->tamanio_stream_instrucciones + 3*sizeof(float); //aca dudo si esta bien el calculo dejamos el tam paginas
 
 	buffer->size = buffer_size; // Parámetros
 
@@ -264,7 +264,7 @@ t_buffer* serializar_header(pcb* header){
 	offset += sizeof(uint32_t);
 
 	memcpy(buffer->stream + offset, &header->tabla_paginas, sizeof(uint32_t));
-	offset += header->tamanio_paginas;
+	offset += sizeof(uint32_t);
 
 	memcpy(buffer->stream + offset, &header->estimacion_siguiente, sizeof(float));
 	offset += sizeof(float);
@@ -308,21 +308,22 @@ void eliminar_paquete_i_o(t_paquete_i_o* paquete) {
 uint32_t obtener_direccion_fisica(uint32_t direccion_logica, uint32_t tabla_paginas){
 	
 	uint32_t nro_pagina = nro_pagina(direccion_logica);
+	uint32_t direccion_fisica;
 
 	if(esta_en_TLB(nro_pagina)) {
 		uint32_t marco = obtener_marco_de_TLB(nro_pagina); //hay que marcarle un nuevo timestamp a la tlb ya que se referencio denuevo
 		uint32_t desplazamiento = desplazamiento(direccion_logica, nro_pagina);
-		uint32_t direccion_fisica = nro_marco * tamanio_pagina + desplazamiento; // Tamanio pagina viene desde memoria.config
+		direccion_fisica = marco * tamanio_pagina + desplazamiento; // Tamanio pagina viene desde memoria.config aca es marco o nro de marco, antes decia nro marco pero esa var no existe
 	}
 	else {
 		uint32_t entrada_tabla_1er_nivel = entrada_tabla_1er_nivel(nro_pagina);
 		uint32_t index_tabla_2do_nivel = primer_acceso_a_memoria(tabla_paginas, entrada_tabla_1er_nivel);
 		
 		uint32_t entrada_tabla_2do_nivel = entrada_tabla_2do_nivel(nro_pagina);
-		uint32_t nro_marco = segundo_acceso_a_memoria(index_tabla_2do_nivel, entrada_tabla_2do_niveln, nro_pagina);
+		uint32_t nro_marco = segundo_acceso_a_memoria(index_tabla_2do_nivel, entrada_tabla_2do_nivel, nro_pagina);
 	
 		uint32_t desplazamiento = desplazamiento(direccion_logica, nro_pagina);
-		uint32_t direccion_fisica = nro_marco * tamanio_pagina + desplazamiento;
+		direccion_fisica = nro_marco * tamanio_pagina + desplazamiento;
 		//guardar_en_TLB(nro_pagina, nro_marco); aca hay que tener cuidado ya que si la actualizo, no deberia guardar porque seria al dope esto se comenta y se delega ala func 2do acceso ya que podemos hacerlo de ahi y facilitar la logica
 	}
 
@@ -352,8 +353,10 @@ void guardar_en_TLB(uint32_t nro_pagina, uint32_t nro_marco) {
 				entrada_tlb* entrada_a_reemplazar = queue_pop(TLB);
 				queue_push(TLB, nueva_entrada);
 				free(entrada_a_reemplazar);
+				break;
 			case REEMPLAZO_LRU:
 				algoritmo_LRU(nueva_entrada);
+				break;
 		}
 	}
 }
@@ -373,10 +376,11 @@ uint32_t esta_en_TLB(uint32_t nro_pagina){
 void actualizar_TLB(uint32_t nro_pagina, uint32_t nro_marco){
 	for(uint32_t i = 0; i < queue_size(TLB); i++){
 		entrada_tlb* una_entrada = queue_pop(TLB);
-		if (una_entrada->nro_marco == nro_marco)
+		if (una_entrada->marco == nro_marco){
 			una_entrada->pagina = nro_pagina;
 			una_entrada->timestamp = (float)time(NULL)*1000;
 		queue_push(TLB, una_entrada);
+		}
 	}
 }
 
@@ -406,7 +410,7 @@ void algoritmo_LRU(entrada_tlb* nueva_entrada){
 	uint32_t tamanio = queue_size(TLB);
 	auxiliar1 = queue_pop(TLB);
 
-	for(int i = 1, i < tamanio, i++){
+	for(int i = 1; i < tamanio; i++){
 		auxiliar2 = queue_pop(TLB);
 
 		if(auxiliar1->timestamp > auxiliar2->timestamp) {
@@ -486,6 +490,7 @@ uint32_t leer_posicion_de_memoria(uint32_t direccion_fisica){
 	t_buffer* buffer = malloc(sizeof(t_buffer));
 	buffer->size = sizeof(uint32_t);
 	buffer->stream = malloc(buffer->size);
+	uint32_t dato_leido = 0;
 
 	memcpy(buffer->stream, &direccion_fisica, sizeof(uint32_t));
 

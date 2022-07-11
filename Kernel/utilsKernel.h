@@ -111,7 +111,7 @@ uint32_t resultOk;
 float estimacion_inicial;
 float alfa;
 
-int flag_respuesta_a_interupcion; //CORREGIR INTERRUPCION CON DOBLE R
+int flag_respuesta_a_interrupcion; //CORREGIR INTERRUPCION CON DOBLE R
 int conexion_cpu_interrupt;
 float tiempo_de_espera_max;
 pcb* ejecutado;

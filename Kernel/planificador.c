@@ -273,7 +273,7 @@ void* planificador_de_corto_plazo(void* nada){
 		sem_wait(&binario_lista_ready);
 		printf("hay algo para hacer\n");
 		pcb* proceso_a_ejecutar = NULL;
-		flag_respuesta_a_interupcion = 0;
+		flag_respuesta_a_interrupcion = 0;
 		int num_aux = OPERACION_INTERRUPT;
 		int flag_vacio = 0;
 

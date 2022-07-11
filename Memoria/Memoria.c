@@ -18,9 +18,9 @@ char* alg_reemplazo;
 
 t_list* lista_global_de_tablas_de_1er_nivel;
 t_list* lista_global_de_tablas_de_2do_nivel;
-t_dict* diccionario_pid;
-t_dict* diccionario_marcos;
-t_dict* diccionario_swap;
+t_dictionary* diccionario_pid;
+t_dictionary* diccionario_marcos;
+t_dictionary* diccionario_swap;
 uint32_t* estado_de_marcos;
 
 typedef struct{
@@ -169,14 +169,14 @@ void* atender_kernel(void* input){
 	while(1){
 		int codigo_de_paquete = recibir_operacion(*cliente_fd);
 		int tam_mem;
-		int P_aux;
+		int p_aux;
 		switch(codigo_de_paquete) {
 		case CREAR_PROCESO:
 			tam_mem = recibir_operacion(*cliente_fd); //aca hay que recibir mas cosas minimo entiendo q el pid para usarlo en el swap, y armar el swap
 			p_aux = crear_proceso(tam_mem);
 			send(cliente_fd, &p_aux, sizeof(int), 0);
 			break;
-		case DESTRUIR_PROCESO:
+		case FINALIZAR_PROCESO:
 
 		break;
 
@@ -214,8 +214,8 @@ void crear_swap(int pid, int cantidad_de_marcos){
 	swap_struct* swp = malloc(sizeof(swap_struct));
 
 	
-	swp->path_swap = malloc(strlen(PATH_SWAP) + strlen(string_itoa(pid)) + 1);
-	strcat(swp->path_swap, PATH_SWAP);
+	swp->path_swap = malloc(strlen(path_swap) + strlen(string_itoa(pid)) + 1);
+	strcat(swp->path_swap, path_swap);
 	strcat(swp->path_swap, string_itoa(pid));
 	
 	FILE* swp_file = fopen(swp->path_swap, "w"); //abrir con fopen en vez de open, open es la low level call de open pero meh no hay necesidad mas comun el otro hacemos eso en write necesario para el ftruncate que extiende el tamaino
@@ -225,7 +225,7 @@ void crear_swap(int pid, int cantidad_de_marcos){
    	
  
 	dict_add(diccionario_swap, &pid, swp);
-	fclose(swap_file);
+	fclose(swp_file);
 }
 
 //Dezplazamiento es nro_pag * tam_pag
@@ -278,7 +278,7 @@ void crear_tablas_de_2do_nivel(int cantidad_de_entradas_de_paginas_2do_nivel, t_
 			list_add(lista_de_paginas_2do_nivel, pagina);
 			contador++;
 		}
-		uint32_t index = list_size(lista_de_tablas_2do_nivel);
+		uint32_t index = list_size(lista_global_de_tablas_de_2do_nivel);
 		list_add(lista_global_de_tablas_de_2do_nivel, lista_de_paginas_2do_nivel);
 		list_add(tabla_de_1er_nivel, &index);
 		iterador++;

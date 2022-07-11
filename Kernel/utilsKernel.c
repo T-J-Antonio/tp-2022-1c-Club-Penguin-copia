@@ -181,7 +181,7 @@ void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion
 t_buffer* serializar_header(pcb* header){
 	t_buffer* buffer = malloc(sizeof(t_buffer));
 	uint32_t offset = 0;
-	uint32_t buffer_size = 6*sizeof(uint32_t) + header->tamanio_stream_instrucciones + header->tamanio_paginas + sizeof(float)*3 ;
+	uint32_t buffer_size = 7*sizeof(uint32_t) + header->tamanio_stream_instrucciones + sizeof(float)*3 ;
 	buffer->size = 0;
 	buffer->size = buffer_size;
 	buffer->stream = malloc(buffer->size);
