@@ -18,7 +18,7 @@
 #define OPERACION_ENVIO_PCB 1
 #define OPERACION_IO 2
 #define OPERACION_EXIT 3
-#define CPU_LIBRE 4
+//#define CPU_LIBRE 4
 #define OPERACION_INTERRUPT 5
 #define RESPUESTA_INTERRUPT 6
 #define CREAR_PROCESO 7
@@ -42,13 +42,15 @@ sem_t cpu_en_running;
 
 uint32_t tamanio_pagina;
 uint32_t cant_entradas_por_tabla;
+uint32_t cantidad_entradas_TLB;
+uint32_t conexion_memoria;
 
 t_queue* TLB;
 uint32_t algoritmo_reemplazo_TLB;
 
-int hay_interrupciones = 0;
+
 int cliente_dispatch;
-uint32_t cpu_libre = CPU_LIBRE;
+
 
 typedef struct
 {
@@ -159,13 +161,15 @@ uint32_t entrada_tabla_1er_nivel(uint32_t);
 
 uint32_t entrada_tabla_2do_nivel(uint32_t);
 
-uint32_t desplazamiento(uint32_t, uint32_t);
+uint32_t desplazamiento_memoria(uint32_t, uint32_t);
 
 //FUNCIONES PARA COMUNICARSE CON LA MEMORIA
 
 uint32_t primer_acceso_a_memoria(uint32_t, uint32_t);
 
-uint32_t segundo_acceso_a_memoria(uint32_t, uint32_t);
+
+uint32_t segundo_acceso_a_memoria(uint32_t, uint32_t, uint32_t);
+
 
 uint32_t leer_posicion_de_memoria(uint32_t);
 
@@ -175,10 +179,14 @@ uint32_t escribir_posicion_en_memoria(uint32_t, uint32_t);
 
 uint32_t esta_en_TLB(uint32_t);
 
-uint32_t guardar_en_TLB(uint32_t, uint32_t);
+void guardar_en_TLB(uint32_t, uint32_t);
 
-uint32_t actualizar_TLB(uint32_t, uint32_t);
+void actualizar_TLB(uint32_t, uint32_t);
 
 uint32_t obtener_marco_de_TLB(uint32_t);
 
+uint32_t numero_pagina(uint32_t);
+
 void algoritmo_LRU(entrada_tlb*);
+
+void escribir_en_posicion_de_memoria(uint32_t, uint32_t);

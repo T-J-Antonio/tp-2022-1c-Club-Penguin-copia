@@ -3,10 +3,8 @@
 void* escuchar_kernel(int, t_config*);
 void* escuchar_interrupciones(int, t_config*);
 void ciclo_de_instruccion(pcb*, int);
-uint32_t tamanio_pagina;
-uint32_t entradas_por_tabla;
-uint32_t conexion_memoria;
-uint32_t cantidad_entradas_TLB;
+int hay_interrupciones = 0;
+uint32_t cpu_libre = 4;
 
 int main(){
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/CPU/CPU.config");
@@ -24,7 +22,7 @@ int main(){
 
 	conexion_memoria = crear_conexion(ip_memoria, puerto_memoria);
 	recv(conexion_memoria, &tamanio_pagina, sizeof(uint32_t), MSG_WAITALL);
-	recv(conexion_memoria, &entradas_por_tabla, sizeof(uint32_t), MSG_WAITALL);
+	recv(conexion_memoria, &cant_entradas_por_tabla, sizeof(uint32_t), MSG_WAITALL);
 
 	TLB = queue_create();
 
