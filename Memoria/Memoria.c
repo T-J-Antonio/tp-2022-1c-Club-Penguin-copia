@@ -219,17 +219,19 @@ void crear_swap(int pid, int cantidad_de_marcos){
 
 
 void volcar_pagina_en_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
+	//retardo de escritura
 	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, string_itoa(pid));
 	memcpy(swap_map->swap_map + dezplazamiento, dato, tam_pagina);
 }
 
 void leer_pagina_de_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
+	//retardo de lectura
 	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, string_itoa(pid));
 	memcpy(dato, swap_map->swap_map + dezplazamiento, tam_pagina);
 }
 
 void eliminar_swap(uint32_t pid, uint32_t memoria_total){
-	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, string_itoa(pid));
+	swap_struct* swap_map = (swap_struct *) dictionary_remove(diccionario_swap, string_itoa(pid));
 	munmap(swap_map->swap_map, memoria_total); 
 	
 	remove(swap_map->path_swap);
@@ -286,11 +288,11 @@ void reanudar_proceso(uint32_t pid, uint32_t primera_pag){
 
 uint32_t crear_proceso(int tamanio_en_memoria, int pid){ // tengo que iniciar las nuevas estrucutras tmb
 	uint32_t cantidad_de_entradas_de_paginas_2do_nivel = tamanio_en_memoria / tam_pagina;
-	crear_swap(pid, cantidad_de_entradas_de_paginas_2do_nivel);
 	
 	if((tamanio_en_memoria % tam_pagina) > 0){
 		cantidad_de_entradas_de_paginas_2do_nivel++;
 	}
+	crear_swap(pid, cantidad_de_entradas_de_paginas_2do_nivel);
 
 	t_list* lista_1er_nivel_proceso = list_create();
 	crear_tablas_de_2do_nivel(cantidad_de_entradas_de_paginas_2do_nivel, lista_1er_nivel_proceso);
@@ -360,9 +362,9 @@ void suspender_proceso(int index_tabla){
 	//Responder a kernel un ok;
 }
 
-void eliminar_proceso(int index_tabla){ //aca hay que destruir las tablas de paginas
-	int pid = *(int*)dictionary_get(diccionario_pid, string_itoa(index_tabla));
-	t_list* tabla_1er_nivel = list_get(lista_global_de_tablas_de_1er_nivel, index_tabla);
+void eliminar_proceso(int index_tabla, uint32_t memoria_total){ //aca hay que destruir las tablas de paginas
+	int pid = *(int*)dictionary_remove(diccionario_pid, string_itoa(index_tabla));
+	t_list* tabla_1er_nivel = list_remove(lista_global_de_tablas_de_1er_nivel, index_tabla);
 
 	int tamanio_lista = list_size(tabla_1er_nivel);
 	int iterator = 0;
@@ -372,18 +374,14 @@ void eliminar_proceso(int index_tabla){ //aca hay que destruir las tablas de pag
 		t_list* tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_2da);
 		int tamanio_lista_2do_nivel = list_size(tabla_2do_nivel);
 		int iterator_2do_nivel = 0;
-		while(iterator_2do_nivel <= tamanio_lista_2do_nivel){
-			tabla_de_segundo_nivel* pagina = list_get(tabla_2do_nivel, iterator_2do_nivel);
-			if(pagina->bit_presencia ==1){
-				// Si esta en memoria hay que liberar el marco
-			}
-			iterator_2do_nivel++;
-		}
+		list_destroy_and_destroy_elements(tabla_2do_nivel,free);
 		iterator++;
 	}
+	list_destroy_and_destroy_elements(tabla_1er_nivel,free);
 	liberar_marcos(pid);
+	eliminar_swap(pid, memoria_total);
 	//aca deberiamos matar el swap
-}
+} // falta esto
 
 
 //NOTA: a la hora de sacar de swap hay que ver como sabemos la tabla depaginas del proceso para saber la posicion en la que guardar
@@ -435,6 +433,8 @@ int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pi
 		if(marco == -1){
 			marco_a_asignar = reemplazar_marco(estructura, pid);//falta hacer lo que sigue
 			dato->marco = marco_a_asignar;
+			estructura->offset++;
+			estructura->offset = estructura->offset % marcos_por_proceso; //hago que el puntero apunte al siguiente
 			dato->bit_presencia = 1;
 			dato->bit_modificado = 0;
 			dato->bit_de_uso = 1;
@@ -490,7 +490,7 @@ int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ /
 					volcar_pagina_en_swap(pid, (dato->numero_pagina * tam_pagina), espacio_memoria_user + (dato->marco * tam_pagina));
 					dato->bit_modificado = 0;
 				}
-				return adm->offset;
+				return adm->offset; // ojo el puntero deberia quedar apuntando al siguiente
 			}
 			else{
 				dato->bit_de_uso = 0;
@@ -541,14 +541,5 @@ int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ /
 	
 }
 
-// a lo hora de cargar una pagina podemos cargarla de swap total esta todo en 0 leemos eso y fue asi nos facilitamos la vida NO SE QUE TANTO SEA VERDAD ESTO CUANDO LLEGUE VEO, ES PARA LA REANUDACION
-
-// definir clock y clock m, por suerte como iteran sobre las estructuras administrativas es mas facil. podria poner el indice a la tabla nivel 1 en la estructura administrativa para facilitarnos la vida.
-
 
 // IMPLEMENTAR EL RETARDO BOLUDO ANTES DE LA RESPUESTA A CPU!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
-
-
-// ambos algos recorren las tablas de paginas buscando marcos libres solo que M le da prioridad a los que fueron modificados por sobre los que no para clock m hago un while que si es par busca 00 si es impar busca 01, seteando el flag de uso en 0.
-
-// hacer una funcion auxiliar que retorne la pagina que tiene un marco asignado.
