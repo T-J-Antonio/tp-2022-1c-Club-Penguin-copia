@@ -94,3 +94,7 @@ void liberar_conexion(int socket_cliente);
 
 //FUNCIONES PROPIAS
 void* recibir_buffer(int*, int);
+uint32_t leer_posicion(uint32_t);
+void crear_swap(int, int);
+uint32_t crear_proceso(int, int);
+void* escuchar(int);

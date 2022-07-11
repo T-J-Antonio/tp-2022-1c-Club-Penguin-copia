@@ -1,9 +1,5 @@
 #include "utilsMemoria.h"
 
-void* escuchar(int, t_config* );
-void* recibiendo(void*, t_config* );
-void iniciar_estructuras();
-
 int cantidad_de_marcos_totales;
 int tam_memoria;
 int tam_pagina;
@@ -87,14 +83,14 @@ int main(){
 	log_info(logger, "memoria lista para recibir al request");
 	pthread_t socket_escucha_memoria;
 
-	void* _f_aux_escucha(void* socket_cpu_interrupt){
-		escuchar(*(int*)socket_cpu_interrupt, config);
+	void* _f_aux_escucha(void* socket_memoria){
+		escuchar(*(int*)socket_memoria);
 		return NULL;
 	}
 
-	pthread_create(&socket_escucha_memoria, NULL, _f_aux_escucha, (void*) &socket_cpu_escucha);
+	pthread_create(&socket_escucha_memoria, NULL, _f_aux_escucha, (void*) &socket_memoria_escucha);
 
-	pthread_join(socket_escucha_dispatch, NULL);
+	pthread_join(socket_escucha_memoria, NULL);
 	return 0;
 }
 
@@ -114,7 +110,7 @@ void* atender_cpu(void* nada){
 	uint32_t pid;
 
 	while(1){
-		int codigo_de_paquete = recibir_operacion(*cliente_cpu);
+		int codigo_de_paquete = recibir_operacion(cliente_cpu);
 		switch(codigo_de_paquete) {
 		case ACCESO_A_1RA_TABLA:
 			recv(cliente_cpu, &tabla_paginas, sizeof(uint32_t), 0);
@@ -173,7 +169,8 @@ void* atender_kernel(void* input){
 		switch(codigo_de_paquete) {
 		case CREAR_PROCESO:
 			tam_mem = recibir_operacion(*cliente_fd); //aca hay que recibir mas cosas minimo entiendo q el pid para usarlo en el swap, y armar el swap
-			p_aux = crear_proceso(tam_mem);
+			uint32_t pid = recibir_operacion(*cliente_fd);
+			p_aux = crear_proceso(tam_mem, pid);
 			send(cliente_fd, &p_aux, sizeof(int), 0);
 			break;
 		case FINALIZAR_PROCESO:
@@ -224,7 +221,7 @@ void crear_swap(int pid, int cantidad_de_marcos){
  	swp->swap_map = mmap (0, tam, PROT_READ | PROT_WRITE, MAP_SHARED, swp_file, 0);
    	
  
-	dict_add(diccionario_swap, &pid, swp);
+	dictionary_put(diccionario_swap, &pid, swp);
 	fclose(swp_file);
 }
 
@@ -232,17 +229,17 @@ void crear_swap(int pid, int cantidad_de_marcos){
 
 
 void volcar_pagina_en_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
-	swap_struct* swap_map = (swap_struct *) dict_get(diccionario_swap, &pid);
+	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, &pid);
 	memcpy(swap_map->swap_map + dezplazamiento, dato, tam_pagina);
 }
 
 void leer_pagina_de_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
-	swap_struct* swap_map = (swap_struct *) dict_get(diccionario_swap, &pid);
+	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, &pid);
 	memcpy(dato, swap_map->swap_map + dezplazamiento, tam_pagina);
 }
 
 void eliminar_swap(uint32_t pid, uint32_t memoria_total){
-	swap_struct* swap_map = (swap_struct *) dict_get(diccionario_swap, &pid);
+	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, &pid);
 	munmap(swap_map->swap_map, memoria_total); 
 	
 	remove(swap_map->path_swap);
@@ -286,20 +283,20 @@ void crear_tablas_de_2do_nivel(int cantidad_de_entradas_de_paginas_2do_nivel, t_
 }
 
 
-uint32_t reanudar_proceso(uint32_t pid){
+void reanudar_proceso(uint32_t pid, uint32_t primera_pag){
 	estructura_administrativa_de_marcos* admin = malloc(sizeof(estructura_administrativa_de_marcos));
-	admin->pagina_primer_nivel = tabla_pags;
+	admin->pagina_primer_nivel = primera_pag;
 	admin->offset = 0;
 	admin->marcos_asignados = malloc(sizeof(int) * marcos_por_proceso);
 	for(int i = 0; i < marcos_por_proceso; i++){
 		admin->marcos_asignados[i] =-1;
 	}
-	dict_add(diccionario_marcos, &pid, admin);
+	dictionary_put(diccionario_marcos, &pid, admin);
 }
 
 uint32_t crear_proceso(int tamanio_en_memoria, int pid){ // tengo que iniciar las nuevas estrucutras tmb
-	crear_swap(pid);
 	uint32_t cantidad_de_entradas_de_paginas_2do_nivel = tamanio_en_memoria / tam_pagina;
+	crear_swap(pid, cantidad_de_entradas_de_paginas_2do_nivel);
 	
 	if((tamanio_en_memoria % tam_pagina) > 0){
 		cantidad_de_entradas_de_paginas_2do_nivel++;
@@ -310,7 +307,7 @@ uint32_t crear_proceso(int tamanio_en_memoria, int pid){ // tengo que iniciar la
 
 	uint32_t tabla_pags = list_size(lista_global_de_tablas_de_1er_nivel); // retornar el index de la tabla de paginas al kernel para que se agregue a la pcb
 	list_add(lista_global_de_tablas_de_1er_nivel, lista_1er_nivel_proceso);
-	dict_add(diccionario_pid, &tabla_pags, &pid);
+	dictionary_put(diccionario_pid, &tabla_pags, &pid);
 
 	estructura_administrativa_de_marcos* admin = malloc(sizeof(estructura_administrativa_de_marcos));
 	admin->pagina_primer_nivel = tabla_pags;
@@ -319,13 +316,13 @@ uint32_t crear_proceso(int tamanio_en_memoria, int pid){ // tengo que iniciar la
 	for(int i = 0; i < marcos_por_proceso; i++){
 		admin->marcos_asignados[i] =-1;
 	}
-	dict_add(diccionario_marcos, &pid, admin);
+	dictionary_put(diccionario_marcos, &pid, admin);
 	
 	return tabla_pags;
 }
 
 void liberar_marcos(int pid){ //aca no vuelco a swap porque sino complico mas las cosas, tambien tengo que liberar en la estructura grande
-	estructura_administrativa_de_marcos* admin = dict_get(diccionario_marcos, &pid);
+	estructura_administrativa_de_marcos* admin = dictionary_get(diccionario_marcos, &pid);
 	int i;
 	for(i = 0; i < marcos_por_proceso; i++){
 		if(admin->marcos_asignados[i] != -1){
@@ -333,20 +330,20 @@ void liberar_marcos(int pid){ //aca no vuelco a swap porque sino complico mas la
 		}
 	}
 	free(admin->marcos_asignados);
-	dict_remove(diccionario_marcos, &pid);
+	dictionary_remove(diccionario_marcos, &pid);
 	free(admin);
 }
 
-int suspender_proceso(int index_tabla){
-	int pid = *(int*)dict_get(diccionario_pid, &index_tabla);
+void suspender_proceso(int index_tabla){
+	int pid = *(int*)dictionary_get(diccionario_pid, &index_tabla);
 
-	t_list * tabla_1er_nivel = list_get(tabla_global_1er_nivel, index_tabla);
+	t_list * tabla_1er_nivel = list_get(lista_global_de_tablas_de_1er_nivel, index_tabla);
 	
 	int tamanio_lista = list_size(tabla_1er_nivel);
-	int iterator = 0;
+	int iterador = 0;
 	
 	while(iterador <= tamanio_lista){
-		int index_2da = list_get(tabla_1er_nivel, iterator);
+		int index_2da = list_get(tabla_1er_nivel, iterador);
 		t_list * tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_2da); // aca hay que corregir esto, lista 1 es una lista de ints no una lista de listas
 	
 		int tamanio_lista_2do_nivel = list_size(tabla_2do_nivel);
@@ -367,14 +364,14 @@ int suspender_proceso(int index_tabla){
 			}
 			iterator_2do_nivel++;
 		}
-		iterator++;
+		iterador++;
 	}
 	liberar_marcos(pid);
 	//Responder a kernel un ok;
 }
 
-int eliminar_proceso(int index_tabla){ //aca hay que destruir las tablas de paginas
-	int pid = *(int*)dict_get(diccionario_pid, &index_tabla);
+void eliminar_proceso(int index_tabla){ //aca hay que destruir las tablas de paginas
+	int pid = *(int*)dictionary_get(diccionario_pid, &index_tabla);
 	t_list* tabla_1er_nivel = list_get(lista_global_de_tablas_de_1er_nivel, index_tabla);
 
 	int tamanio_lista = list_size(tabla_1er_nivel);
@@ -413,7 +410,7 @@ int respuesta_a_pregunta_de_1er_acceso(int index_tabla, int entrada){
 
 int primer_marco_libre_del_proceso(estructura_administrativa_de_marcos* est){
 	int aux;
-	for(int i =0; i < marcos_por_proceso, i++){
+	for(int i =0; i < marcos_por_proceso; i++){
 		if(est->marcos_asignados[est->offset] == -1){
 			return est->offset;
 		}
@@ -422,25 +419,21 @@ int primer_marco_libre_del_proceso(estructura_administrativa_de_marcos* est){
 			est->offset = est->offset % marcos_por_proceso; //aca seria el operador modulo para no complicarnos la vida y hacer la vuelta del puntero a la pos 0
 		}
 	}
-	return -1 //esto ya que no hay marcos libres
+	return -1; //esto ya que no hay marcos libres
 }
 
 int primer_marco_libre(){
-	for(int i=0; i< cantidad_de_marcos_totales, i++){
-		if(estado_de_marcos[i]==1)
-		return i; 
-	}
-	else{
-		//no deberia pasar nunca que se nos llene la memoria asi q ni lo miro
+	for(int i=0; i< cantidad_de_marcos_totales; i++){
+		if(estado_de_marcos[i]==1) return i;
 	}
 }
 
 
 int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pid){ // para esto me es mas util recibir el pid del proceso para poder agarrar sus estructuras administrativas
 	t_list* tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_tabla);
-	estructura_administrativa_de_marcos* estructura = (estructura_administrativa_de_marcos*)dict_get(diccionario_marcos, &pid);
+	estructura_administrativa_de_marcos* estructura = (estructura_administrativa_de_marcos*)dictionary_get(diccionario_marcos, &pid);
 	int marco_a_asignar;
-
+	int marco;
 	tabla_de_segundo_nivel* dato = (tabla_de_segundo_nivel*) list_get(tabla_2do_nivel, entrada); //cambiar el nombre de el struct
 	if(dato->bit_presencia == 1){
 		dato->bit_de_uso = 1;
@@ -448,7 +441,8 @@ int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pi
 	}
 
 	else{
-		if((int marco = primer_marco_libre_del_proceso(estructura)) == -1){
+		int marco = primer_marco_libre_del_proceso(estructura);
+		if(marco == -1){
 			marco_a_asignar = reemplazar_marco(estructura, pid);//falta hacer lo que sigue
 			dato->marco = marco_a_asignar;
 			dato->bit_presencia = 1;
@@ -466,35 +460,33 @@ int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pi
 			dato->bit_modificado = 0;
 			dato->bit_de_uso = 1;
 		} //esto es si tiene marcos disponibles.
-		leer_pagina_de_swap(pid, (tam_pagina * dato->numero_pagina), espacio_memoria_user + (marco_a_asignar * tamanio_pagina));// esto tiene que tener un timer antes de hacerlo
+		leer_pagina_de_swap(pid, (tam_pagina * dato->numero_pagina), espacio_memoria_user + (marco_a_asignar * tam_pagina));// esto tiene que tener un timer antes de hacerlo
 	}
 	return dato->marco;
 }
 
 
 tabla_de_segundo_nivel* retornar_pagina(int indice_pagina, int marco_asignado){
-	t_list* tabla_1er_nivel = (t_list*)list_get(lista_global_de_tablas_de_1er_nivel, index_tabla);
-	int cantidad_pags - list_size(tabla_1er_nivel);
+	t_list* tabla_1er_nivel = (t_list*)list_get(lista_global_de_tablas_de_1er_nivel, indice_pagina);
+	int cantidad_pags = list_size(tabla_1er_nivel);
 	
-	for(int i = 0; i< cantidad_pags, i++){
+	for(int i = 0; i< cantidad_pags; i++){
 		
 		t_list* tabla_dos = (t_list*)list_get(tabla_1er_nivel, i);
 		int cant_entradas = list_size(tabla_dos);
 		
-		for(int c = 0; c< cant_entradas, c++){
+		for(int c = 0; c< cant_entradas; c++){
 			tabla_de_segundo_nivel* dato = (tabla_de_segundo_nivel*) list_get(tabla_dos, c);
 			if(dato->marco == marco_asignado){
 				return dato;
 			}
 		}
 	}
-
 }
 
 int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ //esto va a tener clock y clock-m  ESTO VA A RETORNAR EL MARCO QUE SE VA A USAR. LA ASIGNACION LE CORRESPONDE A LA SUPERIOR A ESTA
 
 	if(strcmp(alg_reemplazo, "CLOCK") == 0 ){
-		
 		
 		while(true){ //ojo con loswhile infinitos, deberia siempre llegarle una estructura correcta pero en caso de ser llamado de forma erronea 
 			
@@ -507,14 +499,14 @@ int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ /
 					volcar_pagina_en_swap(pid, (dato->numero_pagina * tam_pagina), espacio_memoria_user + (dato->marco * tam_pagina));
 					dato->bit_modificado = 0;
 				}
-				return est->offset;
+				return adm->offset;
 			}
 			else{
 				dato->bit_de_uso = 0;
 			}
 
-		est->offset++;
-		est->offset = est->offset % marcos_por_proceso;
+		adm->offset++;
+		adm->offset = adm->offset % marcos_por_proceso;
 		}
 	}
 	else{//aca va CLOCK-M
@@ -531,7 +523,7 @@ int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ /
 							volcar_pagina_en_swap(pid, (dato->numero_pagina * tam_pagina), espacio_memoria_user + (dato->marco * tam_pagina));
 							dato->bit_modificado = 0;
 						}
-						return est->offset;
+						return adm->offset;
 					}
 				}
 				
@@ -543,14 +535,14 @@ int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ /
 							volcar_pagina_en_swap(pid, (dato->numero_pagina * tam_pagina), espacio_memoria_user + (dato->marco * tam_pagina));
 							dato->bit_modificado = 0;
 						}
-						return est->offset;
+						return adm->offset;
 					}
 					else{
 						dato->bit_de_uso = 0;
 					}
 				}
-			est->offset++;
-			est->offset = est->offset % marcos_por_proceso;
+			adm->offset++;
+			adm->offset = adm->offset % marcos_por_proceso;
 			}
 			iterador++;
 		}
