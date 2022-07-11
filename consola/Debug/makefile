@@ -28,7 +28,7 @@ all: Consola
 Consola: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C Linker'
-	gcc  -o "Consola" $(OBJS) $(USER_OBJS) $(LIBS)
+	gcc  -o "Consola" $(OBJS) $(USER_OBJS) $(LIBS) -m32
 	@echo 'Finished building target: $@'
 	@echo ' '
 

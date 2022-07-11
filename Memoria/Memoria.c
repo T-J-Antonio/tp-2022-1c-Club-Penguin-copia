@@ -74,7 +74,7 @@ int main(){
 	log_info(logger, "memoria lista para recibir al request");
 	pthread_t socket_escucha_memoria;
 
-	void* _f_aux_escucha(void* socket_memoria){
+	void* _f_aux_escucha(void* socket_memoria) {
 		escuchar(*(int*)socket_memoria);
 		return NULL;
 	}

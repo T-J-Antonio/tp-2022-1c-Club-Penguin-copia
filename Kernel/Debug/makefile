@@ -28,7 +28,7 @@ all: Kernel
 Kernel: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C Linker'
-	gcc -pthread -o "Kernel" $(OBJS) $(USER_OBJS) $(LIBS)
+	gcc -pthread -o "Kernel" $(OBJS) $(USER_OBJS) $(LIBS) -m32
 	@echo 'Finished building target: $@'
 	@echo ' '
 
