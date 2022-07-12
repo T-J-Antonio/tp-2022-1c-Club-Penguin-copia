@@ -4,7 +4,6 @@ int cantidad_de_marcos_totales;
 int tam_memoria;
 int tam_pagina;
 int entradas_por_tabla;
-int retardo_swap;
 int cliente_cpu;
 int cliente_kernel;
 void* espacio_memoria_user;
@@ -63,6 +62,9 @@ int main(){
 
 	alg_reemplazo = config_get_string_value(config, "ALGORITMO_REEMPLAZO");
 
+	retardo_swap = (float) config_get_int_value(config, "RETARDO_SWAP");
+	retardo_mem = (float) config_get_int_value(config, "RETARDO_MEMORIA");
+
 	entradas_por_tabla = config_get_int_value(config, "ENTRADAS_POR_TABLA");
 	retardo_swap = config_get_int_value(config, "RETARDO_SWAP");
 	diccionario_pid = dictionary_create();
@@ -86,6 +88,7 @@ int main(){
 }
 
 void* atender_cpu(void* nada){
+	int cod_ok = 1;
 	// envíos iniciales de datos necesarios para el CPU
 	send(cliente_cpu, &tam_pagina, sizeof(uint32_t), 0);
 	send(cliente_cpu, &entradas_por_tabla, sizeof(uint32_t), 0);
@@ -104,32 +107,34 @@ void* atender_cpu(void* nada){
 		int codigo_de_paquete = recibir_operacion(cliente_cpu);
 		switch(codigo_de_paquete) {
 		case ACCESO_A_1RA_TABLA:
-			recv(cliente_cpu, &tabla_paginas, sizeof(uint32_t), 0);
-			recv(cliente_cpu, &entrada_tabla_1er_nivel, sizeof(uint32_t), 0);
+			recv(cliente_cpu, &tabla_paginas, sizeof(uint32_t), MSG_WAITALL);
+			recv(cliente_cpu, &entrada_tabla_1er_nivel, sizeof(uint32_t), MSG_WAITALL);
 			index_tabla_2do_nivel = respuesta_a_pregunta_de_1er_acceso(tabla_paginas, entrada_tabla_1er_nivel);
 			send(cliente_cpu, &index_tabla_2do_nivel, sizeof(int), 0);
 			break;
 
 		case ACCESO_A_2DA_TABLA: //voy a tener que recibir el pid tmb para facilitar el reemplazo bastante
-			recv(cliente_cpu, &index_tabla_2do_nivel, sizeof(uint32_t), 0);
-			recv(cliente_cpu, &entrada_tabla_2do_nivel, sizeof(uint32_t), 0);
-			recv(cliente_cpu, &pid, sizeof(uint32_t), 0);
+			recv(cliente_cpu, &index_tabla_2do_nivel, sizeof(uint32_t), MSG_WAITALL);
+			recv(cliente_cpu, &entrada_tabla_2do_nivel, sizeof(uint32_t), MSG_WAITALL);
+			recv(cliente_cpu, &pid, sizeof(uint32_t), MSG_WAITALL);
 			marco = respuesta_a_pregunta_de_2do_acceso(index_tabla_2do_nivel, entrada_tabla_2do_nivel, pid); //aca si fue necesario reemplazar un marco hay que avisarle a la tlb
 			send(cliente_cpu, &marco, sizeof(uint32_t), 0);
 			break;
 
 		case LECTURA_EN_MEMORIA:
 			//Hay que corroborar si lo que quiere leer el proceso es una seccion de memoria perteneciente al mismo?
-			recv(cliente_cpu, &direccion_fisica, sizeof(uint32_t), 0);
+			recv(cliente_cpu, &direccion_fisica, sizeof(uint32_t), MSG_WAITALL);
 			dato_leido = leer_posicion(direccion_fisica);
 			send(cliente_cpu, &dato_leido, sizeof(uint32_t), 0);
 			break;
 
 		case ESCRITURA_EN_MEMORIA:
 			//Hay que corroborar si en donde quiere escribir el proceso es una seccion de memoria perteneciente al mismo?
-			recv(cliente_cpu, &direccion_fisica, sizeof(uint32_t), 0);
-			recv(cliente_cpu, &dato_a_escribir, sizeof(uint32_t), 0);
+			recv(cliente_cpu, &direccion_fisica, sizeof(uint32_t), MSG_WAITALL);
+			recv(cliente_cpu, &dato_a_escribir, sizeof(uint32_t), MSG_WAITALL);
 			escribir_en_posicion(direccion_fisica, dato_a_escribir);
+			send(cliente_cpu, &cod_ok, sizeof(uint32_t), 0);
+
 			break;
 			
 		}
@@ -139,11 +144,14 @@ void* atender_cpu(void* nada){
 
 uint32_t leer_posicion(uint32_t direccion_fisica){
 	uint32_t dato_leido;
+	usleep((useconds_t)retardo_mem * (useconds_t)1000);
 	memcpy(&dato_leido, espacio_memoria_user + direccion_fisica, sizeof(uint32_t));   // lee 1 uint o lee la pagina entera?
 	return dato_leido;
 }
 
+
 void escribir_en_posicion(uint32_t direccion_fisica, uint32_t dato_a_escribir){
+	usleep((useconds_t)retardo_mem * (useconds_t)1000);
 	memcpy(espacio_memoria_user + direccion_fisica, &dato_a_escribir, sizeof(uint32_t));
 }
 
@@ -238,12 +246,14 @@ void crear_swap(int pid, int cantidad_de_marcos){
 
 void volcar_pagina_en_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
 	//retardo de escritura
+	usleep((useconds_t)retardo_swap * (useconds_t)1000);
 	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, string_itoa(pid));
 	memcpy(swap_map->swap_map + dezplazamiento, dato, tam_pagina);
 }
 
 void leer_pagina_de_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
 	//retardo de lectura
+	usleep((useconds_t)retardo_swap * (useconds_t)1000);
 	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, string_itoa(pid));
 	memcpy(dato, swap_map->swap_map + dezplazamiento, tam_pagina);
 }
@@ -401,11 +411,8 @@ void eliminar_proceso(int index_tabla, uint32_t memoria_total){ //aca hay que de
 		cantidad_de_entradas_de_paginas_2do_nivel++;
 	}
 	eliminar_swap(pid, cantidad_de_entradas_de_paginas_2do_nivel * tam_pagina);
-	//aca deberiamos matar el swap
-} // falta esto
+}
 
-
-//NOTA: a la hora de sacar de swap hay que ver como sabemos la tabla depaginas del proceso para saber la posicion en la que guardar
 
 //---------------------------respuestas a accesos a memoria-----------------------------------------------------------------------
 
@@ -500,7 +507,7 @@ int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ /
 
 	if(strcmp(alg_reemplazo, "CLOCK") == 0 ){
 		
-		while(true){ //ojo con loswhile infinitos, deberia siempre llegarle una estructura correcta pero en caso de ser llamado de forma erronea 
+		while(true){ //ojo con los while infinitos, deberia siempre llegarle una estructura correcta pero en caso de ser llamado de forma erronea 
 			
 			tabla_de_segundo_nivel* dato = retornar_pagina(adm->pagina_primer_nivel, adm->marcos_asignados[adm->offset]);
 					

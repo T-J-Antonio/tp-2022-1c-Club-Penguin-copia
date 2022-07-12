@@ -114,7 +114,6 @@ int inicio;
 int conexion_CPU_dispatch;
 int conexion_memoria;
 
-
 uint32_t proximo_pid;
 uint32_t resultOk;
 

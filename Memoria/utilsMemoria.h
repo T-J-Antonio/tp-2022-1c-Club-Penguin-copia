@@ -93,6 +93,9 @@ typedef struct{
 } estructura_administrativa_de_marcos;
 
 t_list* lista_de_tablas_de_primer_nivel;
+
+float retardo_mem;
+float retardo_swap;
 //FUNCIONES TRAÍDAS DEL TP0
 
 int iniciar_servidor(char*, char*);
