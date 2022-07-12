@@ -158,6 +158,7 @@ void* realizar_io(void* proceso_sin_castear){
 			send(conexion_memoria, &sus, sizeof(int), 0);
 			send(conexion_memoria, &proceso->tabla_paginas, sizeof(uint32_t), 0);
 			recv(conexion_memoria, &rta, sizeof(int), MSG_WAITALL);
+			printf("se bloqueo\n");
 			dictionary_put(process_state, string_pid, "suspended blocked");
 			sem_post(&sem_contador_multiprogramacion);
 			usleep((((useconds_t)aux[0])- (useconds_t)cupo_restante)* (useconds_t)1000);
@@ -193,6 +194,7 @@ void* dispositivo_io(void* nada){ //ESTE HAY QUE HACERLE UN HILO
 		int cantidad_en_io = 0;
 		sem_wait(&signal_a_io);
 		sem_getvalue(&signal_a_io, &cantidad_en_io);
+		printf("a hacer iooooooooooooooooooooooooooooo");
 		cantidad_en_io++;
 		if(cantidad_en_io){
 			sem_wait(&mutex_cola_suspendido);

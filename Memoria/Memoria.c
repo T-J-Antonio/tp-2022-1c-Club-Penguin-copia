@@ -8,7 +8,7 @@ int cliente_cpu;
 int cliente_kernel;
 void* espacio_memoria_user;
 int marcos_por_proceso;
-char* path_swap = NULL;
+char* path_swap = "";
 char* alg_reemplazo;
 
 t_list* lista_global_de_tablas_de_1er_nivel;
@@ -169,15 +169,10 @@ void* atender_kernel(void* input){
 
 		switch(codigo_de_paquete) {
 		case CREAR_PROCESO:
-			printf("me piden crear un proceso\n");
 			pid = recibir_operacion(cliente_fd);
 			tam_mem = recibir_operacion(cliente_fd); //aca hay que recibir mas cosas minimo entiendo q el pid para usarlo en el swap, y armar el swap
-			printf("llego el pid %d\n",pid);
 			p_aux = crear_proceso(tam_mem, pid);
-			printf("indice proceso %d\n", p_aux);
-			printf("retorno el proc\n");
 			send(cliente_fd, &p_aux, sizeof(uint32_t), 0); //este send no pasa
-			printf("hice el send\n");
 			break;
 		case FINALIZAR_PROCESO:
 			index = recibir_operacion(cliente_fd);
@@ -188,16 +183,20 @@ void* atender_kernel(void* input){
 		break;
 
 		case REANUDAR_PROCESO:
+			printf("me llamaron a reanudar\n");
 			pid = recibir_operacion(cliente_fd);
 			index = recibir_operacion(cliente_fd);
 			reanudar_proceso(pid, index);
 			send(cliente_fd, &rtaOk, sizeof(u_int32_t), 0);
+			printf("reanude\n");
 		break;
 
 		case SUSPENDER_PROCESO:
+			printf("me llamaron a suspender\n");
 			index = recibir_operacion(cliente_fd);
 			suspender_proceso(index);
 			send(cliente_fd, &rtaOk, sizeof(u_int32_t), 0);
+			printf("suspendi\n");
 		break;
 		}
 	}
@@ -212,7 +211,6 @@ void* escuchar(int socket_memoria_escucha){
 
 	cliente_kernel = esperar_cliente(socket_memoria_escucha);
 	pthread_t thread_kernel;
-	printf("creo el hilo de kernel\n");
 	pthread_create(&thread_kernel, NULL, atender_kernel, (void*) &cliente_kernel );
 	pthread_join(thread_kernel, NULL);
  	return NULL;
@@ -237,7 +235,6 @@ void crear_swap(int pid, int cantidad_de_marcos){
 	strcat(swp->path_swap, ".txt");
 	printf("el path es %s\n", swp->path_swap);
 	int swp_file = open (swp->path_swap, O_RDWR | O_CREAT, (mode_t)0600 );
-	printf("fd  %d\n", swp_file);
 	off_t tam = cantidad_de_marcos * tam_pagina;
 	ftruncate(swp_file, tam); //esto lo uso para agrandar el archivo a esa cantidad de bits
  	swp->swap_map = mmap (0, tam, PROT_READ | PROT_WRITE, MAP_SHARED, swp_file, 0);
@@ -302,8 +299,10 @@ void crear_tablas_de_2do_nivel(int cantidad_de_entradas_de_paginas_2do_nivel, t_
 			contador++;
 		}
 		uint32_t index = list_size(lista_global_de_tablas_de_2do_nivel);
+		int* numero = malloc(sizeof(uint32_t));
+		memcpy(numero, &index, sizeof(uint32_t));
 		list_add(lista_global_de_tablas_de_2do_nivel, lista_de_paginas_2do_nivel);
-		list_add(tabla_de_1er_nivel, &index);
+		list_add(tabla_de_1er_nivel, numero);
 		iterador++;
 	}
 }
@@ -327,32 +326,27 @@ uint32_t crear_proceso(int tamanio_en_memoria, int pid){ // tengo que iniciar la
 		cantidad_de_entradas_de_paginas_2do_nivel++;
 	}
 	crear_swap(pid, cantidad_de_entradas_de_paginas_2do_nivel);
-	printf("cree el swap\n");
 	t_list* lista_1er_nivel_proceso = list_create();
-	printf("me fui a hacer las tablas de 2do lvl\n");
 	crear_tablas_de_2do_nivel(cantidad_de_entradas_de_paginas_2do_nivel, lista_1er_nivel_proceso);
-	printf("volvi de hacerlas\n");
 	uint32_t tabla_pags = list_size(lista_global_de_tablas_de_1er_nivel); // retornar el index de la tabla de paginas al kernel para que se agregue a la pcb
 	list_add(lista_global_de_tablas_de_1er_nivel, lista_1er_nivel_proceso);
-	printf("las agregue\n");
-	dictionary_put(diccionario_pid, string_itoa(tabla_pags), (void*)&pid);
-	printf("puse en el dict\n");
+
+	int* pid_perm = malloc(sizeof(uint32_t));
+	memcpy(pid_perm, &pid, sizeof(uint32_t));
+	dictionary_put(diccionario_pid, string_itoa(tabla_pags), pid_perm);
 	estructura_administrativa_de_marcos* admin = malloc(sizeof(estructura_administrativa_de_marcos));
 	admin->pagina_primer_nivel = tabla_pags;
 	admin->offset = 0;
 	admin->marcos_asignados = malloc(sizeof(int) * marcos_por_proceso);
-	printf("hice las adm estruct\n");
 	for(int i = 0; i < marcos_por_proceso; i++){
 		admin->marcos_asignados[i] =-1;
 	}
-	printf("seteo todo en -1\n");
 	dictionary_put(diccionario_marcos, string_itoa(pid), (void*)admin);
-	printf("hice el proc falta retornarlo\n");
 	return tabla_pags;
 }
 
 void liberar_marcos(int pid){ //aca no vuelco a swap porque sino complico mas las cosas, tambien tengo que liberar en la estructura grande
-	estructura_administrativa_de_marcos* admin = dictionary_get(diccionario_marcos, string_itoa(pid));
+	estructura_administrativa_de_marcos* admin = (estructura_administrativa_de_marcos*) dictionary_get(diccionario_marcos, string_itoa(pid));
 	int i;
 	for(i = 0; i < marcos_por_proceso; i++){
 		if(admin->marcos_asignados[i] != -1){
@@ -402,7 +396,7 @@ void suspender_proceso(int index_tabla){
 
 void eliminar_proceso(int index_tabla, uint32_t memoria_total){ //aca hay que destruir las tablas de paginas de memoria total recibo el dato crudo hay que meter la cuenta
 	int pid = *(int*)dictionary_remove(diccionario_pid, string_itoa(index_tabla));
-	t_list* tabla_1er_nivel = list_remove(lista_global_de_tablas_de_1er_nivel, index_tabla);
+	t_list* tabla_1er_nivel = (t_list*) list_remove(lista_global_de_tablas_de_1er_nivel, index_tabla);
 
 	int tamanio_lista = list_size(tabla_1er_nivel);
 	int iterator = 0;

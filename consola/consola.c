@@ -1,6 +1,5 @@
 #include "utilsConsola.h"
 
-
 int main (int argc, char** argv) {
 	if (argc != 3) return ERROR_ARGUMENTOS; 											//ERROR: cant. errónea de argumentos
 	char* path = argv[1];
