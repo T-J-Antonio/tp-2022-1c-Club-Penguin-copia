@@ -94,9 +94,8 @@ void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la
 			send(conexion_memoria, &proceso->pid, sizeof(uint32_t), 0);
 			send(conexion_memoria, &proceso->tamanio_en_memoria , sizeof(uint32_t), 0);
 			printf("le avise a mem espero respuesta\n");
-			int aux;
-			recv(conexion_memoria, &aux, sizeof(uint32_t), MSG_WAITALL); //recivo el index de la tabla de paginas
-			printf("llego rta = %d", aux);
+			recv(conexion_memoria, &proceso->tabla_paginas, sizeof(uint32_t), MSG_WAITALL); //recivo el index de la tabla de paginas
+			printf("llego rta = %d", proceso->tabla_paginas);
 			sem_wait(&mutex_cola_ready);
 			queue_push(cola_de_ready, (void*) proceso);
 
@@ -117,6 +116,7 @@ void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la
 
 void pasar_a_running(pcb* proceso_ready){
 	proceso_ready->timestamp_inicio_exe = ((float)time(NULL)*1000);
+	printf("tamanio = %d",proceso_ready->tamanio_stream_instrucciones);
 	t_buffer* pcb_serializado = malloc(sizeof(t_buffer));
 	pcb_serializado = serializar_header(proceso_ready);
 	empaquetar_y_enviar(pcb_serializado, conexion_CPU_dispatch, OPERACION_ENVIO_PCB);

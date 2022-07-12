@@ -238,7 +238,7 @@ uint32_t serializar_instruccion(t_buffer* buffer, instruccion* instruccion, uint
 t_buffer* serializar_header(pcb* header){
 	t_buffer* buffer = malloc(sizeof(t_buffer));
 	uint32_t offset = 0;
-	uint32_t buffer_size = 7*sizeof(uint32_t) + header->tamanio_stream_instrucciones + 3*sizeof(float); //aca dudo si esta bien el calculo dejamos el tam paginas
+	uint32_t buffer_size = 6*sizeof(uint32_t) + header->tamanio_stream_instrucciones + 3*sizeof(float); //aca dudo si esta bien el calculo dejamos el tam paginas
 
 	buffer->size = buffer_size; // Parámetros
 
