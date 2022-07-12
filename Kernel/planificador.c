@@ -2,19 +2,22 @@
 
 void* recibiendo(void* input, t_config* config){
 	pcb* nuevo_pcb = malloc(sizeof(pcb)); // OJO con que no nos pase q se va el espacio de mem al salir del contexto de la llamada
-
+	printf("voy a recibir el pcb de consola\n");
 	int* cliente_fd = (int *) input;
 	void* buffer_instrucciones;
 	int codigo_de_paquete = recibir_operacion(*cliente_fd);
 	switch(codigo_de_paquete) {
 	case OPERACION_ENVIO_INSTRUCCIONES:
+		printf("llego el pcb\n");
 		buffer_instrucciones = recibir_instrucciones(*cliente_fd);
 //----------------------Planificador a largo plazo---- agrega a cola de new
 		sem_wait(&mutex_cola_new);
+		printf("creo su header\n");
 		crear_header(proximo_pid, buffer_instrucciones, config, nuevo_pcb, estimacion_inicial);
 		nuevo_pcb->socket_consola = *cliente_fd;
 		queue_push(cola_procesos_nuevos, (void*) nuevo_pcb);
 		proximo_pid++;
+		printf("lo agrego a la cola\n");
 		sem_post(&mutex_cola_new);
 		sem_post(&contador_de_listas_esperando_para_estar_en_ready);
 
@@ -32,6 +35,7 @@ void* escuchar_consola(int socket_kernel_escucha, t_config* config){
 
 
 		void* _f_aux(void* cliente_fd){
+			printf("llego una consola\n");
 			recibiendo(cliente_fd, config);// post recibiendo perdemos las cosas
 			return NULL;
 		}
@@ -53,6 +57,7 @@ void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la
 		sem_wait(&contador_de_listas_esperando_para_estar_en_ready);
 		sem_wait(&sem_contador_multiprogramacion);
 		sem_wait(&mutex_cola_sus_ready);
+		printf("llego un proceso nuevo\n");
 
 		valor = queue_is_empty(cola_procesos_sus_ready); // devuelve un valor distinto a cero si la cola esta vacia se hace adentro del sem, porque la cola puede modificarse
 
@@ -84,11 +89,14 @@ void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la
 		valor = queue_is_empty(cola_procesos_nuevos);
 		if(!valor){ 
 			proceso = (pcb*) queue_pop(cola_procesos_nuevos);
+			printf("trato de crear un nuevo proceso a ready avisando a mem qu haga las est\n");
 			send(conexion_memoria, &crear, sizeof(uint32_t), 0);
 			send(conexion_memoria, &proceso->pid, sizeof(uint32_t), 0);
 			send(conexion_memoria, &proceso->tamanio_en_memoria , sizeof(uint32_t), 0);
-			recv(conexion_memoria, &proceso->tabla_paginas, sizeof(uint32_t), MSG_WAITALL); //recivo el index de la tabla de paginas
-
+			printf("le avise a mem espero respuesta\n");
+			int aux;
+			recv(conexion_memoria, &aux, sizeof(uint32_t), MSG_WAITALL); //recivo el index de la tabla de paginas
+			printf("llego rta = %d", aux);
 			sem_wait(&mutex_cola_ready);
 			queue_push(cola_de_ready, (void*) proceso);
 
