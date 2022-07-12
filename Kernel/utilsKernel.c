@@ -105,7 +105,7 @@ void crear_header(uint32_t proximo_pid, void* buffer_instrucciones, t_config* co
 	memcpy(&header->tamanio_en_memoria, buffer_instrucciones + offset, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
 
-	header->tamanio_stream_instrucciones = tamanio_del_stream - sizeof(uint32_t);
+	header->tamanio_stream_instrucciones = tamanio_del_stream - sizeof(uint32_t); // no me acuerdo de porque esto es necesario ojo aca
 
 
 	header->instrucciones = malloc(header->tamanio_stream_instrucciones);

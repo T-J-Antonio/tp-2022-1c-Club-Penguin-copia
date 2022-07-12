@@ -46,6 +46,8 @@ void* escuchar_consola(int socket_kernel_escucha, t_config* config){
 void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la peticion para que arme las tablas de paginas y me retorne el index
 	bool valor;
 	pcb* proceso = malloc(sizeof(pcb));
+	uint32_t rean_proc = REANUDAR_PROCESO;
+	uint32_t crear = CREAR_PROCESO;
 	while(1){
 		sem_wait(&contador_de_listas_esperando_para_estar_en_ready);
 		sem_wait(&sem_contador_multiprogramacion);
@@ -53,8 +55,11 @@ void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la
 
 		valor = queue_is_empty(cola_procesos_sus_ready); // devuelve un valor distinto a cero si la cola esta vacia se hace adentro del sem, porque la cola puede modificarse
 
-		if(!valor){
-			proceso = queue_pop(cola_procesos_sus_ready);
+		if(!valor){ 
+			proceso = (pcb*) queue_pop(cola_procesos_sus_ready);
+			send(conexion_memoria, &rean_proc, sizeof(uint32_t), 0);
+			send(conexion_memoria, &proceso->pid, sizeof(uint32_t), 0);
+			send(conexion_memoria, &proceso->tabla_paginas, sizeof(uint32_t), 0);
 
 			sem_wait(&mutex_cola_ready);
 
@@ -75,8 +80,12 @@ void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la
 		sem_wait(&mutex_cola_new);
 
 		valor = queue_is_empty(cola_procesos_nuevos);
-		if(!valor){
-			proceso = queue_pop(cola_procesos_nuevos);
+		if(!valor){ 
+			proceso = (pcb*) queue_pop(cola_procesos_nuevos);
+			send(conexion_memoria, &crear, sizeof(uint32_t), 0);
+			send(conexion_memoria, &proceso->pid, sizeof(uint32_t), 0);
+			send(conexion_memoria, &proceso->tamanio_en_memoria , sizeof(uint32_t), 0);
+			recv(conexion_memoria, &proceso->tabla_paginas, sizeof(uint32_t), MSG_WAITALL); //recivo el index de la tabla de paginas
 
 			sem_wait(&mutex_cola_ready);
 			queue_push(cola_de_ready, (void*) proceso);
@@ -105,6 +114,7 @@ void pasar_a_running(pcb* proceso_ready){
 }
 
 void* realizar_io(void* proceso_sin_castear){
+	int sus = SUSPENDER_PROCESO;
 	pcb* proceso = (pcb*)proceso_sin_castear;
 
 	float aux [2];
@@ -120,7 +130,7 @@ void* realizar_io(void* proceso_sin_castear){
 			hacer_cuenta_srt(proceso);
 
 			sem_wait(&mutex_cola_ready);
-			queue_push(cola_de_ready, proceso);
+			queue_push(cola_de_ready, proceso); // aca no llamo a mem porque nunca se suspendio
 			sem_post(&mutex_cola_ready);
 			sem_post(&binario_lista_ready);
 
@@ -133,6 +143,9 @@ void* realizar_io(void* proceso_sin_castear){
 
 		}else{
 			usleep(((useconds_t)cupo_restante) * (useconds_t)1000);
+			// avisar a memoria que se suspende el proceso!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+			send(conexion_memoria, &sus, sizeof(int), 0);
+			send(conexion_memoria, &proceso->tabla_paginas, sizeof(uint32_t), 0);
 			dictionary_put(process_state, string_pid, "suspended blocked");
 			sem_post(&sem_contador_multiprogramacion);
 			usleep((((useconds_t)aux[0])- (useconds_t)cupo_restante)* (useconds_t)1000);
@@ -162,6 +175,7 @@ void* realizar_io(void* proceso_sin_castear){
 }
 
 void* dispositivo_io(void* nada){ //ESTE HAY QUE HACERLE UN HILO
+	int sus = SUSPENDER_PROCESO;
 	while(1){
 		int cantidad_en_io = 0;
 		sem_wait(&signal_a_io);
@@ -185,8 +199,11 @@ void* dispositivo_io(void* nada){ //ESTE HAY QUE HACERLE UN HILO
 				float io[2];
 				memcpy(io, temporal, sizeof(float)*2);
 				if((tiempo_actual - io[1]) > tiempo_de_espera_max) {
-					sem_post(&sem_contador_multiprogramacion); //aparte mandar un msg que no conocemos a memoria
+					sem_post(&sem_contador_multiprogramacion); 
 					char* string_pid = string_itoa(proceso_sus->pid);
+					// avisar a memoria que se suspende el proceso!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+					send(conexion_memoria, &sus, sizeof(int), 0);
+					send(conexion_memoria, &proceso_sus->tabla_paginas, sizeof(uint32_t), 0);
 					dictionary_put(process_state, string_pid, "suspended blocked");
 				}
 				queue_push(cola_de_io, (void*) proceso_sus);
@@ -204,6 +221,8 @@ void* recibir_pcb_de_cpu(void* nada){
 		printf("espero a recibir op\n");
 		float io[2];
 		int dato;
+		int fin_proc = FINALIZAR_PROCESO;
+		int rta;
 		pcb* proceso_recibido = malloc(sizeof(pcb));
 		int codigo_de_paquete = recibir_operacion(conexion_CPU_dispatch);
 		printf("codigo: %d\n", codigo_de_paquete);
@@ -233,8 +252,11 @@ void* recibir_pcb_de_cpu(void* nada){
 			case OPERACION_EXIT:
 				recibir_pcb(conexion_CPU_dispatch, proceso_recibido);
 
-				//2 send(memoria, borrar_pid, int, 0);
-				//recv(memoria, borrar_pid, int, MSG_WAITALL); mensaje de que ya elimino la mem para proceder
+				send(conexion_memoria, &fin_proc, sizeof(uint32_t), 0);  //MANDAR A MEMORIA QUE FINALIZA EL PROCESO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+				send(conexion_memoria, &proceso_recibido->tabla_paginas, sizeof(uint32_t), 0);  
+				send(conexion_memoria, &proceso_recibido->tamanio_en_memoria, sizeof(uint32_t), 0); 
+				recv(conexion_memoria, &rta, sizeof(uint32_t), 0); 
+				
 				send(proceso_recibido->socket_consola, &finalizar, sizeof(uint32_t), 0); //aviso a la consola que termino su proceso
 				liberar_pcb(proceso_recibido);
 				sem_post(&sem_contador_multiprogramacion);

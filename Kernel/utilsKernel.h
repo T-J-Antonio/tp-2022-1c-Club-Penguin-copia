@@ -22,6 +22,15 @@
 #define CPU_LIBRE 4
 #define OPERACION_INTERRUPT 5
 #define RESPUESTA_INTERRUPT 6
+#define CREAR_PROCESO 7
+#define SUSPENDER_PROCESO 8
+#define FINALIZAR_PROCESO 9
+#define ACCESO_A_1RA_TABLA 10
+#define ACCESO_A_2DA_TABLA 11
+#define LECTURA_EN_MEMORIA 12
+#define ESCRITURA_EN_MEMORIA 13
+#define REEMPLAZO_DE_PAGINA 14
+#define REANUDAR_PROCESO 14
 
 #define PROCESO_FINALIZADO 101
 
@@ -103,6 +112,7 @@ t_dictionary* process_state;
 int inicio;
 
 int conexion_CPU_dispatch;
+int conexion_memoria;
 
 
 uint32_t proximo_pid;

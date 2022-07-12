@@ -170,6 +170,10 @@ void* atender_kernel(void* input){
 		case REANUDAR_PROCESO:
 
 		break;
+
+		case SUSPENDER_PROCESO:
+
+		break;
 		}
 	}
 	return NULL;
@@ -362,7 +366,7 @@ void suspender_proceso(int index_tabla){
 	//Responder a kernel un ok;
 }
 
-void eliminar_proceso(int index_tabla, uint32_t memoria_total){ //aca hay que destruir las tablas de paginas
+void eliminar_proceso(int index_tabla, uint32_t memoria_total){ //aca hay que destruir las tablas de paginas de memoria total recibo el dato crudo hay que meter la cuenta
 	int pid = *(int*)dictionary_remove(diccionario_pid, string_itoa(index_tabla));
 	t_list* tabla_1er_nivel = list_remove(lista_global_de_tablas_de_1er_nivel, index_tabla);
 
@@ -372,14 +376,17 @@ void eliminar_proceso(int index_tabla, uint32_t memoria_total){ //aca hay que de
 	while(iterator <= tamanio_lista){
 		int index_2da = *(int*) list_get(tabla_1er_nivel, iterator);
 		t_list* tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_2da);
-		int tamanio_lista_2do_nivel = list_size(tabla_2do_nivel);
-		int iterator_2do_nivel = 0;
 		list_destroy_and_destroy_elements(tabla_2do_nivel,free);
 		iterator++;
 	}
 	list_destroy_and_destroy_elements(tabla_1er_nivel,free);
 	liberar_marcos(pid);
-	eliminar_swap(pid, memoria_total);
+	uint32_t cantidad_de_entradas_de_paginas_2do_nivel = memoria_total / tam_pagina;
+	
+	if((memoria_total % tam_pagina) > 0){
+		cantidad_de_entradas_de_paginas_2do_nivel++;
+	}
+	eliminar_swap(pid, cantidad_de_entradas_de_paginas_2do_nivel * tam_pagina);
 	//aca deberiamos matar el swap
 } // falta esto
 
@@ -422,7 +429,7 @@ int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pi
 	estructura_administrativa_de_marcos* estructura = (estructura_administrativa_de_marcos*)dictionary_get(diccionario_marcos, string_itoa(pid));
 	int marco_a_asignar;
 	int marco;
-	tabla_de_segundo_nivel* dato = (tabla_de_segundo_nivel*) list_get(tabla_2do_nivel, entrada); //cambiar el nombre de el struct
+	tabla_de_segundo_nivel* dato = (tabla_de_segundo_nivel*) list_get(tabla_2do_nivel, entrada); //cambiar el nombre de el struct te la debo mepa
 	if(dato->bit_presencia == 1){
 		dato->bit_de_uso = 1;
 		return dato->marco;
@@ -431,10 +438,10 @@ int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pi
 	else{
 		marco = primer_marco_libre_del_proceso(estructura);
 		if(marco == -1){
-			marco_a_asignar = reemplazar_marco(estructura, pid);//falta hacer lo que sigue
+			marco_a_asignar = reemplazar_marco(estructura, pid);//falta hacer lo que sigue ya esta lo que le sigue
 			dato->marco = marco_a_asignar;
 			estructura->offset++;
-			estructura->offset = estructura->offset % marcos_por_proceso; //hago que el puntero apunte al siguiente
+			estructura->offset = estructura->offset % marcos_por_proceso; //hago que el puntero apunte al siguiente para que quede como deberia
 			dato->bit_presencia = 1;
 			dato->bit_modificado = 0;
 			dato->bit_de_uso = 1;
