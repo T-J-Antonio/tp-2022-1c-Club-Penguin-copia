@@ -153,7 +153,7 @@ void liberar_pcb(pcb*);
 
 //FUNCIONES RELACIONADAS CON MMU
 
-uint32_t obtener_direccion_fisica(uint32_t, uint32_t);
+uint32_t obtener_direccion_fisica(uint32_t, uint32_t, uint32_t);
 
 uint32_t nro_pagina(uint32_t);
 
@@ -168,7 +168,7 @@ uint32_t desplazamiento_memoria(uint32_t, uint32_t);
 uint32_t primer_acceso_a_memoria(uint32_t, uint32_t);
 
 
-uint32_t segundo_acceso_a_memoria(uint32_t, uint32_t, uint32_t);
+uint32_t segundo_acceso_a_memoria(uint32_t, uint32_t, uint32_t, uint32_t);
 
 
 uint32_t leer_posicion_de_memoria(uint32_t);

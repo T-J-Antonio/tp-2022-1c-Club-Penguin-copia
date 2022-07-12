@@ -303,7 +303,7 @@ void eliminar_paquete_i_o(t_paquete_i_o* paquete) {
 	free(paquete);
 }
 
-uint32_t obtener_direccion_fisica(uint32_t direccion_logica, uint32_t tabla_paginas){
+uint32_t obtener_direccion_fisica(uint32_t direccion_logica, uint32_t tabla_paginas, uint32_t pid){
 	
 	uint32_t nro_pagina = numero_pagina(direccion_logica);
 	uint32_t direccion_fisica;
@@ -318,7 +318,7 @@ uint32_t obtener_direccion_fisica(uint32_t direccion_logica, uint32_t tabla_pagi
 		uint32_t index_tabla_2do_nivel = primer_acceso_a_memoria(tabla_paginas, tabla_1er_nivel);
 		
 		uint32_t tabla_2do_nivel = entrada_tabla_2do_nivel(nro_pagina);
-		uint32_t nro_marco = segundo_acceso_a_memoria(index_tabla_2do_nivel, tabla_2do_nivel, nro_pagina);
+		uint32_t nro_marco = segundo_acceso_a_memoria(index_tabla_2do_nivel, tabla_2do_nivel, nro_pagina, pid);
 	
 		uint32_t desplazamiento = desplazamiento_memoria(direccion_logica, nro_pagina);
 		direccion_fisica = nro_marco * tamanio_pagina + desplazamiento;
@@ -364,9 +364,10 @@ uint32_t esta_en_TLB(uint32_t nro_pagina){
 	uint32_t se_encontro = 0;	
 	for(uint32_t i = 0; i < queue_size(TLB); i++){
 		entrada_tlb* una_entrada = queue_pop(TLB);
-		if (una_entrada->pagina == nro_pagina)
+		if (una_entrada->pagina == nro_pagina){
 			una_entrada->timestamp = (float)time(NULL)*1000;
 			se_encontro = 1;
+		}
 		queue_push(TLB, una_entrada);
 	}
 	return se_encontro;
@@ -378,8 +379,8 @@ void actualizar_TLB(uint32_t nro_pagina, uint32_t nro_marco){
 		if (una_entrada->marco == nro_marco){
 			una_entrada->pagina = nro_pagina;
 			una_entrada->timestamp = (float)time(NULL)*1000;
-		queue_push(TLB, una_entrada);
 		}
+		queue_push(TLB, una_entrada);
 	}
 }
 
@@ -456,17 +457,19 @@ uint32_t primer_acceso_a_memoria(uint32_t tabla_paginas, uint32_t entrada_tabla_
 	return index_tabla_2do_nivel;
 }
 
-uint32_t segundo_acceso_a_memoria(uint32_t index_tabla_2do_nivel, uint32_t entrada_tabla_2do_nivel, uint32_t nro_pagina){
+uint32_t segundo_acceso_a_memoria(uint32_t index_tabla_2do_nivel, uint32_t entrada_tabla_2do_nivel, uint32_t nro_pagina, uint32_t pid){
 	uint32_t offset = 0;
 	uint32_t nro_marco;
 
 	t_buffer* buffer = malloc(sizeof(t_buffer));
-	buffer->size = 2 * sizeof(uint32_t);
+	buffer->size = 3 * sizeof(uint32_t);
 	buffer->stream = malloc(buffer->size);
 
 	memcpy(buffer->stream + offset, &index_tabla_2do_nivel, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
 	memcpy(buffer->stream + offset, &entrada_tabla_2do_nivel, sizeof(uint32_t));
+	offset += sizeof(uint32_t);
+	memcpy(buffer->stream + offset, &pid, sizeof(uint32_t));
 
 	empaquetar_y_enviar(buffer, conexion_memoria, ACCESO_A_2DA_TABLA);
 

@@ -114,20 +114,18 @@ void* atender_cpu(void* nada){
 		case ACCESO_A_2DA_TABLA: //voy a tener que recibir el pid tmb para facilitar el reemplazo bastante
 			recv(cliente_cpu, &index_tabla_2do_nivel, sizeof(uint32_t), MSG_WAITALL);
 			recv(cliente_cpu, &entrada_tabla_2do_nivel, sizeof(uint32_t), MSG_WAITALL);
-			recv(cliente_cpu, &pid, sizeof(uint32_t), MSG_WAITALL);
-			marco = respuesta_a_pregunta_de_2do_acceso(index_tabla_2do_nivel, entrada_tabla_2do_nivel, pid); //aca si fue necesario reemplazar un marco hay que avisarle a la tlb
+			recv(cliente_cpu, &pid, sizeof(uint32_t), MSG_WAITALL);		//aca tambien tengo que ver si remplaza o no para avisar
+			marco = respuesta_a_pregunta_de_2do_acceso(index_tabla_2do_nivel, entrada_tabla_2do_nivel, pid, cliente_cpu); //aca si fue necesario reemplazar un marco hay que avisarle a la tlb
 			send(cliente_cpu, &marco, sizeof(uint32_t), 0);
 			break;
 
 		case LECTURA_EN_MEMORIA:
-			//Hay que corroborar si lo que quiere leer el proceso es una seccion de memoria perteneciente al mismo?
 			recv(cliente_cpu, &direccion_fisica, sizeof(uint32_t), MSG_WAITALL);
 			dato_leido = leer_posicion(direccion_fisica);
 			send(cliente_cpu, &dato_leido, sizeof(uint32_t), 0);
 			break;
 
 		case ESCRITURA_EN_MEMORIA:
-			//Hay que corroborar si en donde quiere escribir el proceso es una seccion de memoria perteneciente al mismo?
 			recv(cliente_cpu, &direccion_fisica, sizeof(uint32_t), MSG_WAITALL);
 			recv(cliente_cpu, &dato_a_escribir, sizeof(uint32_t), MSG_WAITALL);
 			escribir_en_posicion(direccion_fisica, dato_a_escribir);
@@ -444,14 +442,17 @@ int primer_marco_libre(){
 }
 
 
-int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pid){ // para esto me es mas util recibir el pid del proceso para poder agarrar sus estructuras administrativas
+int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pid, int cliente_cpu){ // para esto me es mas util recibir el pid del proceso para poder agarrar sus estructuras administrativas
 	t_list* tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_tabla);
 	estructura_administrativa_de_marcos* estructura = (estructura_administrativa_de_marcos*)dictionary_get(diccionario_marcos, string_itoa(pid));
 	int marco_a_asignar;
 	int marco;
+	int reemp = REEMPLAZO_DE_PAGINA;
+	int acceso = ACCESO_A_2DA_TABLA;
 	tabla_de_segundo_nivel* dato = (tabla_de_segundo_nivel*) list_get(tabla_2do_nivel, entrada); //cambiar el nombre de el struct te la debo mepa
 	if(dato->bit_presencia == 1){
 		dato->bit_de_uso = 1;
+		send(cliente_cpu, &acceso, sizeof(uint32_t), 0);
 		return dato->marco;
 	}
 
@@ -465,6 +466,7 @@ int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pi
 			dato->bit_presencia = 1;
 			dato->bit_modificado = 0;
 			dato->bit_de_uso = 1;
+			send(cliente_cpu, &reemp, sizeof(uint32_t), 0);
 		}
 		else{
 			marco_a_asignar = primer_marco_libre();
@@ -476,6 +478,7 @@ int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pi
 			dato->bit_presencia = 1;
 			dato->bit_modificado = 0;
 			dato->bit_de_uso = 1;
+			send(cliente_cpu, &acceso, sizeof(uint32_t), 0);
 		} //esto es si tiene marcos disponibles.
 		leer_pagina_de_swap(pid, (tam_pagina * dato->numero_pagina), espacio_memoria_user + (marco_a_asignar * tam_pagina));
 	}

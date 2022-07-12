@@ -129,7 +129,7 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 
 	//fetch operands
 	if(cod_op == COPY) {
-		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[1], proceso_en_ejecucion->tabla_paginas); 
+		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[1], proceso_en_ejecucion->tabla_paginas, proceso_en_ejecucion->pid); 
 		dato_leido = leer_posicion_de_memoria(direccion_fisica);
 	}
 
@@ -148,19 +148,19 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 		break;
 
 	case READ:
-		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas);
+		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas, proceso_en_ejecucion->pid);
 		dato_leido = leer_posicion_de_memoria(direccion_fisica);
 		printf("El dato leido es: %d\n", dato_leido);
 		break;
 	case WRITE:
-		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas);
+		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas, proceso_en_ejecucion->pid);
 		escribir_en_posicion_de_memoria(direccion_fisica, instruccion_a_ejecutar->parametros[1]);
 		break;
 	case COPY:
 		// En fetch operands obtuvimos la direccion fisica con la direccion_logica_origen y despues leimos lo que esta
 		// en esa direccion fisica; ahora obtenemos la direccion fisica de la direccion_logica_destino y despues 
 		// escribimos el dato que leimos en esa direccion
-		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas);
+		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas, proceso_en_ejecucion->pid);
 		escribir_en_posicion_de_memoria(direccion_fisica, dato_leido);
 		break;
 
