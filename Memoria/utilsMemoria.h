@@ -114,3 +114,6 @@ void escribir_en_posicion(uint32_t, uint32_t);
 int reemplazar_marco(estructura_administrativa_de_marcos*, uint32_t);
 int respuesta_a_pregunta_de_1er_acceso(int, int);
 int respuesta_a_pregunta_de_2do_acceso(int, int, uint32_t);
+void reanudar_proceso(uint32_t, uint32_t);
+void suspender_proceso(int);
+void eliminar_proceso(int, uint32_t);

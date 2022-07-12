@@ -150,29 +150,43 @@ void escribir_en_posicion(uint32_t direccion_fisica, uint32_t dato_a_escribir){
 void* atender_kernel(void* input){
 	int cliente_fd = *(int *) input;
 	// atender cualquier msg del kernel
-	
+	int rtaOk = 1;
 	
 	while(1){
 		int codigo_de_paquete = recibir_operacion(cliente_fd);
 		int tam_mem;
-		int p_aux;
+		uint32_t p_aux;
+		uint32_t pid;
+		uint32_t tam_memoria;
+		uint32_t index;
+
 		switch(codigo_de_paquete) {
 		case CREAR_PROCESO:
 			tam_mem = recibir_operacion(cliente_fd); //aca hay que recibir mas cosas minimo entiendo q el pid para usarlo en el swap, y armar el swap
-			uint32_t pid = recibir_operacion(cliente_fd);
+			pid = recibir_operacion(cliente_fd);
+			tam_memoria = recibir_operacion(cliente_fd);
 			p_aux = crear_proceso(tam_mem, pid);
-			send(cliente_fd, &p_aux, sizeof(int), 0);
+			send(cliente_fd, &p_aux, sizeof(uint32_t), 0);
 			break;
 		case FINALIZAR_PROCESO:
+			index = recibir_operacion(cliente_fd);
+			tam_memoria = recibir_operacion(cliente_fd);
+			eliminar_proceso(index, tam_memoria);
+			send(cliente_fd, &rtaOk, sizeof(u_int32_t), 0);
 
 		break;
 
 		case REANUDAR_PROCESO:
-
+			pid = recibir_operacion(cliente_fd);
+			index = recibir_operacion(cliente_fd);
+			reanudar_proceso(pid, index);
+			send(cliente_fd, &rtaOk, sizeof(u_int32_t), 0);
 		break;
 
 		case SUSPENDER_PROCESO:
-
+			index = recibir_operacion(cliente_fd);
+			suspender_proceso(index);
+			send(cliente_fd, &rtaOk, sizeof(u_int32_t), 0);
 		break;
 		}
 	}

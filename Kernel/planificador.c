@@ -48,6 +48,7 @@ void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la
 	pcb* proceso = malloc(sizeof(pcb));
 	uint32_t rean_proc = REANUDAR_PROCESO;
 	uint32_t crear = CREAR_PROCESO;
+	int rta;
 	while(1){
 		sem_wait(&contador_de_listas_esperando_para_estar_en_ready);
 		sem_wait(&sem_contador_multiprogramacion);
@@ -60,6 +61,7 @@ void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la
 			send(conexion_memoria, &rean_proc, sizeof(uint32_t), 0);
 			send(conexion_memoria, &proceso->pid, sizeof(uint32_t), 0);
 			send(conexion_memoria, &proceso->tabla_paginas, sizeof(uint32_t), 0);
+			recv(conexion_memoria, &rta, sizeof(uint32_t), MSG_WAITALL);
 
 			sem_wait(&mutex_cola_ready);
 
@@ -115,6 +117,7 @@ void pasar_a_running(pcb* proceso_ready){
 
 void* realizar_io(void* proceso_sin_castear){
 	int sus = SUSPENDER_PROCESO;
+	int rta;
 	pcb* proceso = (pcb*)proceso_sin_castear;
 
 	float aux [2];
@@ -146,6 +149,7 @@ void* realizar_io(void* proceso_sin_castear){
 			// avisar a memoria que se suspende el proceso!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 			send(conexion_memoria, &sus, sizeof(int), 0);
 			send(conexion_memoria, &proceso->tabla_paginas, sizeof(uint32_t), 0);
+			recv(conexion_memoria, &rta, sizeof(int), MSG_WAITALL);
 			dictionary_put(process_state, string_pid, "suspended blocked");
 			sem_post(&sem_contador_multiprogramacion);
 			usleep((((useconds_t)aux[0])- (useconds_t)cupo_restante)* (useconds_t)1000);
@@ -176,6 +180,7 @@ void* realizar_io(void* proceso_sin_castear){
 
 void* dispositivo_io(void* nada){ //ESTE HAY QUE HACERLE UN HILO
 	int sus = SUSPENDER_PROCESO;
+	int rta;
 	while(1){
 		int cantidad_en_io = 0;
 		sem_wait(&signal_a_io);
@@ -204,6 +209,7 @@ void* dispositivo_io(void* nada){ //ESTE HAY QUE HACERLE UN HILO
 					// avisar a memoria que se suspende el proceso!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 					send(conexion_memoria, &sus, sizeof(int), 0);
 					send(conexion_memoria, &proceso_sus->tabla_paginas, sizeof(uint32_t), 0);
+					recv(conexion_memoria, &rta, sizeof(int), MSG_WAITALL);
 					dictionary_put(process_state, string_pid, "suspended blocked");
 				}
 				queue_push(cola_de_io, (void*) proceso_sus);
@@ -255,7 +261,7 @@ void* recibir_pcb_de_cpu(void* nada){
 				send(conexion_memoria, &fin_proc, sizeof(uint32_t), 0);  //MANDAR A MEMORIA QUE FINALIZA EL PROCESO!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 				send(conexion_memoria, &proceso_recibido->tabla_paginas, sizeof(uint32_t), 0);  
 				send(conexion_memoria, &proceso_recibido->tamanio_en_memoria, sizeof(uint32_t), 0); 
-				recv(conexion_memoria, &rta, sizeof(uint32_t), 0); 
+				recv(conexion_memoria, &rta, sizeof(uint32_t), MSG_WAITALL); 
 				
 				send(proceso_recibido->socket_consola, &finalizar, sizeof(uint32_t), 0); //aviso a la consola que termino su proceso
 				liberar_pcb(proceso_recibido);
