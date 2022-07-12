@@ -28,7 +28,7 @@ uint32_t* estado_de_marcos;
 // Hay que armar el swap y ser capaces de escribir ahi con mmap HECHO!!!
 
 // Y faltan los ALGOS DE remplazo Hecho!!!
-// falta liberacion de memoria
+// falta liberacion de memoria TODO:::!!!!
 
 // Tenemos que ser capaces de volcar todo a swap en caso de que un proceso se suspenda y remover esas estructuras administrativas,  HECHOOOO!!!
 // luego cuando se pase a ready hay que recibir ninguna noti para cargar lo necesario a memoria HECHOOOO!!!
@@ -38,8 +38,6 @@ uint32_t* estado_de_marcos;
 // la lista total de marcos libres es mas facil le hago un vector de bitmap 
 // cuando se suspende un proceso se debe vaciar la lista de marcos usados por ese proceso y pasarlos a libres en el total, en caso de eliminar aparte deberiamos destruir la estructura de marcos usados por ese proceso
 // una f aux liberar marcos es util toma el pid y maneja el vaciado.
-
-// no olvidar los retardos pedidos para el swap y memoria
 
 int main(){
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/Memoria/memoria.config");
@@ -210,6 +208,7 @@ void* escuchar(int socket_memoria_escucha){
 	cliente_kernel = esperar_cliente(socket_memoria_escucha);
 	pthread_t thread_kernel;
 	pthread_create(&thread_kernel, NULL, atender_cpu, (void*) &cliente_kernel );
+	pthread_join(thread_kernel, NULL);
  	return NULL;
 }
 
@@ -346,7 +345,7 @@ void liberar_marcos(int pid){ //aca no vuelco a swap porque sino complico mas la
 	int i;
 	for(i = 0; i < marcos_por_proceso; i++){
 		if(admin->marcos_asignados[i] != -1){
-			estado_de_marcos[admin->marcos_asignados[i]] = 1; //aca el admin almacena el num de marco estaba mal liberar el i porque sino perdiamos cualquier dato no el  correcto
+			estado_de_marcos[admin->marcos_asignados[i]] = 1; //aca el admin almacena el num de marco estaba mal liberar el i porque sino pediamos cualquier dato no el  correcto
 		}
 	}
 	free(admin->marcos_asignados);
@@ -459,7 +458,7 @@ int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pi
 	else{
 		marco = primer_marco_libre_del_proceso(estructura);
 		if(marco == -1){
-			marco_a_asignar = reemplazar_marco(estructura, pid);//falta hacer lo que sigue ya esta lo que le sigue
+			marco_a_asignar = reemplazar_marco(estructura, pid);
 			dato->marco = marco_a_asignar;
 			estructura->offset++;
 			estructura->offset = estructura->offset % marcos_por_proceso; //hago que el puntero apunte al siguiente para que quede como deberia
@@ -478,7 +477,7 @@ int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pi
 			dato->bit_modificado = 0;
 			dato->bit_de_uso = 1;
 		} //esto es si tiene marcos disponibles.
-		leer_pagina_de_swap(pid, (tam_pagina * dato->numero_pagina), espacio_memoria_user + (marco_a_asignar * tam_pagina));// esto tiene que tener un timer antes de hacerlo
+		leer_pagina_de_swap(pid, (tam_pagina * dato->numero_pagina), espacio_memoria_user + (marco_a_asignar * tam_pagina));
 	}
 	return dato->marco;
 }
@@ -568,6 +567,3 @@ int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ /
 	}
 	
 }
-
-
-// IMPLEMENTAR EL RETARDO BOLUDO ANTES DE LA RESPUESTA A CPU!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
