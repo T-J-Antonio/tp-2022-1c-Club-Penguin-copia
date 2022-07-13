@@ -103,6 +103,7 @@ void* atender_cpu(void* nada){
 	uint32_t dato_a_escribir;
 	uint32_t direccion_fisica;
 	uint32_t pid;
+	uint32_t nro_pag;
 
 	while(1){
 		int codigo_de_paquete = recibir_operacion(cliente_cpu);
@@ -126,14 +127,18 @@ void* atender_cpu(void* nada){
 
 		case LECTURA_EN_MEMORIA:
 			recv(cliente_cpu, &direccion_fisica, sizeof(uint32_t), MSG_WAITALL);
-			dato_leido = leer_posicion(direccion_fisica);
+			recv(cliente_cpu, &pid, sizeof(uint32_t), MSG_WAITALL);
+			recv(cliente_cpu, &nro_pag, sizeof(uint32_t), MSG_WAITALL);
+			dato_leido = leer_posicion(direccion_fisica, pid, nro_pag );
 			send(cliente_cpu, &dato_leido, sizeof(uint32_t), 0);
 			break;
 
 		case ESCRITURA_EN_MEMORIA:
 			recv(cliente_cpu, &direccion_fisica, sizeof(uint32_t), MSG_WAITALL);
 			recv(cliente_cpu, &dato_a_escribir, sizeof(uint32_t), MSG_WAITALL);
-			escribir_en_posicion(direccion_fisica, dato_a_escribir);
+			recv(cliente_cpu, &pid, sizeof(uint32_t), MSG_WAITALL);
+			recv(cliente_cpu, &nro_pag, sizeof(uint32_t), MSG_WAITALL);
+			escribir_en_posicion(direccion_fisica, dato_a_escribir, pid, nro_pag);
 			send(cliente_cpu, &cod_ok, sizeof(uint32_t), 0);
 
 			break;
@@ -142,21 +147,43 @@ void* atender_cpu(void* nada){
 	}
 	return NULL;
 }
-
-uint32_t leer_posicion(uint32_t direccion_fisica){
+//tanto en escritura como lectura tengo que ser capaz de agarrar la pag del proceso para poder
+//setear el bit de uso o mod en 1 en caso de que sea acceso directo por tlb o no ya que sino no se volvaria nunca a swap
+uint32_t leer_posicion(uint32_t direccion_fisica, uint32_t pid, uint32_t nro_pag ){
 	uint32_t dato_leido;
 	usleep((useconds_t)retardo_mem * (useconds_t)1000);
 	memcpy(&dato_leido, espacio_memoria_user + direccion_fisica, sizeof(uint32_t));   // lee 1 uint o lee la pagina entera?
+	tabla_de_segundo_nivel* tabla = get_tabla(pid, nro_pag);
+	tabla->bit_de_uso =1;
 	printf("dato leido %d\n", dato_leido);
 	return dato_leido;
 }
 
 
-void escribir_en_posicion(uint32_t direccion_fisica, uint32_t dato_a_escribir){
+void escribir_en_posicion(uint32_t direccion_fisica, uint32_t dato_a_escribir, uint32_t pid, uint32_t nro_pag ){
 	usleep((useconds_t)retardo_mem * (useconds_t)1000);
 	memcpy(espacio_memoria_user + direccion_fisica, &dato_a_escribir, sizeof(uint32_t));
+	tabla_de_segundo_nivel* tabla = get_tabla(pid, nro_pag);
+	tabla->bit_de_uso =1;
+	tabla->bit_modificado =1;
 	printf("dato escrito %d\n", dato_a_escribir);
 }
+
+
+tabla_de_segundo_nivel* get_tabla(uint32_t pid, uint32_t nro_pag){
+	uint32_t index_primer_tabla = nro_pag / entradas_por_tabla;
+	uint32_t index_segunda_tabla = nro_pag % entradas_por_tabla;
+	estructura_administrativa_de_marcos* admin = (estructura_administrativa_de_marcos*) dictionary_get(diccionario_marcos, string_itoa(pid));
+
+
+	t_list* tabla_1er_nivel = list_get(lista_global_de_tablas_de_1er_nivel, admin->pagina_primer_nivel);
+	int index_tabla_2do_nivel = *(int*) list_get(tabla_1er_nivel, index_primer_tabla);
+	t_list* tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_tabla_2do_nivel);
+	tabla_de_segundo_nivel* dato = (tabla_de_segundo_nivel*) list_get(tabla_2do_nivel, index_segunda_tabla);
+
+	return dato;
+}
+
 
 void* atender_kernel(void* input){
 	int cliente_fd = *(int *) input;

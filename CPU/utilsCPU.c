@@ -477,11 +477,13 @@ uint32_t segundo_acceso_a_memoria(uint32_t index_tabla_2do_nivel, uint32_t entra
 	return nro_marco;
 };
 
-uint32_t leer_posicion_de_memoria(uint32_t direccion_fisica){
+uint32_t leer_posicion_de_memoria(uint32_t direccion_fisica, uint32_t pid, uint32_t nro_pag ){
 	int lec = LECTURA_EN_MEMORIA;
 
 	send(conexion_memoria, &lec, sizeof(uint32_t), 0);
 	send(conexion_memoria, &direccion_fisica, sizeof(uint32_t), 0);
+	send(conexion_memoria, &pid, sizeof(uint32_t), 0);
+	send(conexion_memoria, &nro_pag, sizeof(uint32_t), 0);
 	uint32_t dato_leido = 0;
 
 	recv(conexion_memoria, &dato_leido, sizeof(uint32_t), MSG_WAITALL);
@@ -489,12 +491,21 @@ uint32_t leer_posicion_de_memoria(uint32_t direccion_fisica){
 	return dato_leido;
 }
 
-void escribir_en_posicion_de_memoria(uint32_t direccion_fisica, uint32_t dato_a_escribir){
+void vaciar_tlb(){
+	while(queue_size(TLB) > 0){
+		entrada_tlb* una_entrada = queue_pop(TLB);
+		free(una_entrada);
+	}
+}
+
+void escribir_en_posicion_de_memoria(uint32_t direccion_fisica, uint32_t dato_a_escribir, uint32_t pid, uint32_t nro_pag ){
 	int esc = ESCRITURA_EN_MEMORIA;
 
 	send(conexion_memoria, &esc, sizeof(uint32_t), 0);
 	send(conexion_memoria, &direccion_fisica, sizeof(uint32_t), 0);
 	send(conexion_memoria, &dato_a_escribir, sizeof(uint32_t), 0);
+	send(conexion_memoria, &pid, sizeof(uint32_t), 0);
+	send(conexion_memoria, &nro_pag, sizeof(uint32_t), 0);
 
 	uint32_t nro_marco;
 	

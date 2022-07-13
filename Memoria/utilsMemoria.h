@@ -109,14 +109,15 @@ void liberar_conexion(int socket_cliente);
 
 //FUNCIONES PROPIAS
 void* recibir_buffer(int*, int);
-uint32_t leer_posicion(uint32_t);
+uint32_t leer_posicion(uint32_t, uint32_t, uint32_t);
 void crear_swap(int, int);
 uint32_t crear_proceso(int, int);
 void* escuchar(int);
-void escribir_en_posicion(uint32_t, uint32_t);
+void escribir_en_posicion(uint32_t, uint32_t, uint32_t, uint32_t);
 int reemplazar_marco(estructura_administrativa_de_marcos*, uint32_t);
 int respuesta_a_pregunta_de_1er_acceso(int, int);
 int respuesta_a_pregunta_de_2do_acceso(int, int, uint32_t, int);
 void reanudar_proceso(uint32_t, uint32_t);
 void suspender_proceso(int);
 void eliminar_proceso(int, uint32_t);
+tabla_de_segundo_nivel* get_tabla(uint32_t, uint32_t);

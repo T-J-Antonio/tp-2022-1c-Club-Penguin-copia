@@ -119,7 +119,7 @@ void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
 void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch){
 	int tiempo_bloqueo = 0;
 	t_buffer* pcb_actualizado = NULL;
-	uint32_t direccion_fisica, dato_leido;
+	uint32_t direccion_fisica, dato_leido, nro_pagina;
 
 	//fetch
 	instruccion* instruccion_a_ejecutar = list_get(proceso_en_ejecucion->instrucciones, proceso_en_ejecucion->program_counter);
@@ -130,7 +130,8 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 	//fetch operands
 	if(cod_op == COPY) {
 		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[1], proceso_en_ejecucion->tabla_paginas, proceso_en_ejecucion->pid); 
-		dato_leido = leer_posicion_de_memoria(direccion_fisica);
+		nro_pagina = numero_pagina(instruccion_a_ejecutar->parametros[1]);
+		dato_leido = leer_posicion_de_memoria(direccion_fisica, proceso_en_ejecucion->pid, nro_pagina);
 	}
 
 	//execute
@@ -145,17 +146,20 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 		tiempo_bloqueo = instruccion_a_ejecutar->parametros[0];
 		pcb_actualizado = serializar_header(proceso_en_ejecucion);
 		empaquetar_y_enviar_i_o(pcb_actualizado, socket_escucha_dispatch, OPERACION_IO, tiempo_bloqueo);
+		vaciar_tlb();
 		break;
 
 	case READ:
 		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas, proceso_en_ejecucion->pid);
-		dato_leido = leer_posicion_de_memoria(direccion_fisica);
+		nro_pagina = numero_pagina(instruccion_a_ejecutar->parametros[0]);
+		dato_leido = leer_posicion_de_memoria(direccion_fisica, proceso_en_ejecucion->pid, nro_pagina);
 		printf("El dato leido es: %d\n", dato_leido);
 		++(proceso_en_ejecucion->program_counter);
 		break;
 	case WRITE:
 		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas, proceso_en_ejecucion->pid);
-		escribir_en_posicion_de_memoria(direccion_fisica, instruccion_a_ejecutar->parametros[1]);
+		nro_pagina = numero_pagina(instruccion_a_ejecutar->parametros[0]);
+		escribir_en_posicion_de_memoria(direccion_fisica, instruccion_a_ejecutar->parametros[1], proceso_en_ejecucion->pid, nro_pagina);
 		++(proceso_en_ejecucion->program_counter);
 		break;
 	case COPY:
@@ -163,7 +167,8 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 		// en esa direccion fisica; ahora obtenemos la direccion fisica de la direccion_logica_destino y despues 
 		// escribimos el dato que leimos en esa direccion
 		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas, proceso_en_ejecucion->pid);
-		escribir_en_posicion_de_memoria(direccion_fisica, dato_leido);
+		nro_pagina = numero_pagina(instruccion_a_ejecutar->parametros[0]);
+		escribir_en_posicion_de_memoria(direccion_fisica, dato_leido, proceso_en_ejecucion->pid, nro_pagina);
 		++(proceso_en_ejecucion->program_counter);
 		break;
 
@@ -171,6 +176,7 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 		++(proceso_en_ejecucion->program_counter);
 		pcb_actualizado = serializar_header(proceso_en_ejecucion);
 		empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, OPERACION_EXIT);
+		vaciar_tlb();
 		break;
 	}
 
@@ -184,6 +190,7 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 		else{
 			pcb_actualizado = serializar_header(proceso_en_ejecucion);
 			empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, RESPUESTA_INTERRUPT);
+			vaciar_tlb();
 		}
 		hay_interrupciones--;
 	}

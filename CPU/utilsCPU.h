@@ -171,9 +171,9 @@ uint32_t primer_acceso_a_memoria(uint32_t, uint32_t);
 uint32_t segundo_acceso_a_memoria(uint32_t, uint32_t, uint32_t, uint32_t);
 
 
-uint32_t leer_posicion_de_memoria(uint32_t);
+uint32_t leer_posicion_de_memoria(uint32_t, uint32_t, uint32_t);
 
-uint32_t escribir_posicion_en_memoria(uint32_t, uint32_t);
+//uint32_t escribir_posicion_en_memoria(uint32_t, uint32_t);
 
 //FUNCIONES RELACIONADAS CON TLB
 
@@ -189,4 +189,6 @@ uint32_t numero_pagina(uint32_t);
 
 void algoritmo_LRU(entrada_tlb*);
 
-void escribir_en_posicion_de_memoria(uint32_t, uint32_t);
+void vaciar_tlb();
+
+void escribir_en_posicion_de_memoria(uint32_t, uint32_t, uint32_t, uint32_t);
