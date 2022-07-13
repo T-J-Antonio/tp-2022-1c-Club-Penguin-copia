@@ -260,10 +260,10 @@ void* escuchar(int socket_memoria_escucha){
 void crear_swap(int pid, int cantidad_de_marcos){
 	swap_struct* swp = malloc(sizeof(swap_struct));
 	
-	swp->path_swap = malloc(strlen(path_swap) + strlen(string_itoa(pid)) + 6);
-	strcat(swp->path_swap, path_swap);
-	strcat(swp->path_swap, string_itoa(pid));
-	strcat(swp->path_swap, ".txt");
+	swp->path_swap = malloc(strlen(path_swap) + strlen(string_itoa(pid)) + 5);
+	memcpy(swp->path_swap, path_swap, strlen(path_swap));
+	memcpy(swp->path_swap + strlen(path_swap), string_itoa(pid), strlen(string_itoa(pid)));
+	memcpy(swp->path_swap + strlen(path_swap) + strlen(string_itoa(pid)), ".txt", strlen(".txt")+1);	
 	printf("el path es %s\n", swp->path_swap);
 	int swp_file = open (swp->path_swap, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600 );
 	off_t tam = cantidad_de_marcos * tam_pagina;
@@ -377,6 +377,7 @@ uint32_t crear_proceso(int tamanio_en_memoria, int pid){ // tengo que iniciar la
 }
 
 void liberar_marcos(int pid){ //aca no vuelco a swap porque sino complico mas las cosas, tambien tengo que liberar en la estructura grande
+	printf("me llamo para liberar el proceso: %d\n", pid);
 	estructura_administrativa_de_marcos* admin = (estructura_administrativa_de_marcos*) dictionary_get(diccionario_marcos, string_itoa(pid));
 	int i;
 	free(admin->marcos_asignados);
