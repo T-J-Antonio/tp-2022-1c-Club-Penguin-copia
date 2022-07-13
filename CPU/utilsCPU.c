@@ -315,6 +315,8 @@ uint32_t obtener_direccion_fisica(uint32_t direccion_logica, uint32_t tabla_pagi
 	}
 	else {
 		uint32_t tabla_1er_nivel = entrada_tabla_1er_nivel(nro_pagina);
+		printf("nro de indice: %d\n", tabla_1er_nivel);
+		printf("tabla pags: %d\n", tabla_paginas);
 		uint32_t index_tabla_2do_nivel = primer_acceso_a_memoria(tabla_paginas, tabla_1er_nivel);
 		
 		uint32_t tabla_2do_nivel = entrada_tabla_2do_nivel(nro_pagina);
@@ -440,17 +442,13 @@ uint32_t obtener_marco_de_TLB(uint32_t nro_pagina_a_buscar){
 }
 
 uint32_t primer_acceso_a_memoria(uint32_t tabla_paginas, uint32_t entrada_tabla_1er_nivel){
-	uint32_t offset = 0;
 	uint32_t index_tabla_2do_nivel;
-	t_buffer* buffer = malloc(sizeof(t_buffer));
-	buffer->size = 2 * sizeof(uint32_t);
-	buffer->stream = malloc(buffer->size);
+	int acc1ra = ACCESO_A_1RA_TABLA;
 
-	memcpy(buffer->stream + offset, &tabla_paginas, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
-	memcpy(buffer->stream + offset, &entrada_tabla_1er_nivel, sizeof(uint32_t));
 
-	empaquetar_y_enviar(buffer, conexion_memoria, ACCESO_A_1RA_TABLA);
+	send(conexion_memoria, &acc1ra, sizeof(uint32_t), 0);
+	send(conexion_memoria, &tabla_paginas, sizeof(uint32_t), 0);
+	send(conexion_memoria, &entrada_tabla_1er_nivel, sizeof(uint32_t), 0);
 
 	recv(conexion_memoria, &index_tabla_2do_nivel, sizeof(uint32_t), MSG_WAITALL);
 
@@ -458,20 +456,13 @@ uint32_t primer_acceso_a_memoria(uint32_t tabla_paginas, uint32_t entrada_tabla_
 }
 
 uint32_t segundo_acceso_a_memoria(uint32_t index_tabla_2do_nivel, uint32_t entrada_tabla_2do_nivel, uint32_t nro_pagina, uint32_t pid){
-	uint32_t offset = 0;
 	uint32_t nro_marco;
+	int acc2da = ACCESO_A_2DA_TABLA;
 
-	t_buffer* buffer = malloc(sizeof(t_buffer));
-	buffer->size = 3 * sizeof(uint32_t);
-	buffer->stream = malloc(buffer->size);
-
-	memcpy(buffer->stream + offset, &index_tabla_2do_nivel, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
-	memcpy(buffer->stream + offset, &entrada_tabla_2do_nivel, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
-	memcpy(buffer->stream + offset, &pid, sizeof(uint32_t));
-
-	empaquetar_y_enviar(buffer, conexion_memoria, ACCESO_A_2DA_TABLA);
+	send(conexion_memoria, &acc2da, sizeof(uint32_t), 0);
+	send(conexion_memoria, &index_tabla_2do_nivel, sizeof(uint32_t), 0);
+	send(conexion_memoria, &entrada_tabla_2do_nivel, sizeof(uint32_t), 0);
+	send(conexion_memoria, &pid, sizeof(uint32_t), 0);
 
 	uint32_t codigo = recibir_operacion(conexion_memoria);
 	if (codigo == ACCESO_A_2DA_TABLA){
@@ -486,7 +477,8 @@ uint32_t segundo_acceso_a_memoria(uint32_t index_tabla_2do_nivel, uint32_t entra
 	return nro_marco;
 };
 
-uint32_t leer_posicion_de_memoria(uint32_t direccion_fisica){
+uint32_t leer_posicion_de_memoria(uint32_t direccion_fisica){--
+	//sacar el emp y env
 	
 	t_buffer* buffer = malloc(sizeof(t_buffer));
 	buffer->size = sizeof(uint32_t);
@@ -502,7 +494,7 @@ uint32_t leer_posicion_de_memoria(uint32_t direccion_fisica){
 	return dato_leido;
 }
 
-void escribir_en_posicion_de_memoria(uint32_t direccion_fisica, uint32_t dato_a_escribir){
+void escribir_en_posicion_de_memoria(uint32_t direccion_fisica, uint32_t dato_a_escribir){-- // sacar el emp y env
 	uint32_t offset = 0;
 	uint32_t nro_marco;
 	t_buffer* buffer = malloc(sizeof(t_buffer));

@@ -110,6 +110,8 @@ void* atender_cpu(void* nada){
 		case ACCESO_A_1RA_TABLA:
 			recv(cliente_cpu, &tabla_paginas, sizeof(uint32_t), MSG_WAITALL);
 			recv(cliente_cpu, &entrada_tabla_1er_nivel, sizeof(uint32_t), MSG_WAITALL);
+			printf("tabla_paginas: %d\n", tabla_paginas);
+			printf("entrada_tabla_1er_nivel: %d\n", entrada_tabla_1er_nivel);
 			index_tabla_2do_nivel = respuesta_a_pregunta_de_1er_acceso(tabla_paginas, entrada_tabla_1er_nivel);
 			send(cliente_cpu, &index_tabla_2do_nivel, sizeof(int), 0);
 			break;
@@ -145,6 +147,7 @@ uint32_t leer_posicion(uint32_t direccion_fisica){
 	uint32_t dato_leido;
 	usleep((useconds_t)retardo_mem * (useconds_t)1000);
 	memcpy(&dato_leido, espacio_memoria_user + direccion_fisica, sizeof(uint32_t));   // lee 1 uint o lee la pagina entera?
+	printf("dato leido %d\n", dato_leido);
 	return dato_leido;
 }
 
@@ -152,6 +155,7 @@ uint32_t leer_posicion(uint32_t direccion_fisica){
 void escribir_en_posicion(uint32_t direccion_fisica, uint32_t dato_a_escribir){
 	usleep((useconds_t)retardo_mem * (useconds_t)1000);
 	memcpy(espacio_memoria_user + direccion_fisica, &dato_a_escribir, sizeof(uint32_t));
+	printf("dato escrito %d\n", dato_a_escribir);
 }
 
 void* atender_kernel(void* input){
@@ -421,6 +425,7 @@ void eliminar_proceso(int index_tabla, uint32_t memoria_total){ //aca hay que de
 //---------------------------respuestas a accesos a memoria-----------------------------------------------------------------------
 
 int respuesta_a_pregunta_de_1er_acceso(int index_tabla, int entrada){
+	printf("index tabla: %d\n", index_tabla);
 	t_list* tabla_1er_nivel = list_get(lista_global_de_tablas_de_1er_nivel, index_tabla);
 	int index_tabla_2do_nivel = *(int*) list_get(tabla_1er_nivel, entrada);
 	return index_tabla_2do_nivel;
