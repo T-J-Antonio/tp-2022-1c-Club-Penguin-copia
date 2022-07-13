@@ -427,18 +427,19 @@ void suspender_proceso(int index_tabla){
 
 void eliminar_proceso(int index_tabla, uint32_t memoria_total){ //aca hay que destruir las tablas de paginas de memoria total recibo el dato crudo hay que meter la cuenta
 	int pid = *(int*)dictionary_remove(diccionario_pid, string_itoa(index_tabla));
-	t_list* tabla_1er_nivel = (t_list*) list_remove(lista_global_de_tablas_de_1er_nivel, index_tabla);
+	printf("este es el index problematico: %d\n", index_tabla);
+	//t_list* tabla_1er_nivel = (t_list*) list_remove(lista_global_de_tablas_de_1er_nivel, index_tabla);
 
-	int tamanio_lista = list_size(tabla_1er_nivel);
-	int iterator = 0;
+	//int tamanio_lista = list_size(tabla_1er_nivel);
+	//int iterator = 0;
 
-	while(iterator < tamanio_lista){
-		int index_2da = *(int*) list_get(tabla_1er_nivel, iterator);
-		t_list* tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_2da);
-		list_destroy_and_destroy_elements(tabla_2do_nivel,free);
-		iterator++;
-	}
-	list_destroy_and_destroy_elements(tabla_1er_nivel,free);
+	//while(iterator < tamanio_lista){
+	//	int index_2da = *(int*) list_get(tabla_1er_nivel, iterator);
+	//	t_list* tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_2da);
+	//	list_destroy_and_destroy_elements(tabla_2do_nivel,free);
+	//	iterator++;
+	//}
+	//list_destroy_and_destroy_elements(tabla_1er_nivel,free);
 	liberar_marcos(pid);
 	uint32_t cantidad_de_entradas_de_paginas_2do_nivel = memoria_total / tam_pagina;
 	
