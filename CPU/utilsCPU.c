@@ -477,35 +477,26 @@ uint32_t segundo_acceso_a_memoria(uint32_t index_tabla_2do_nivel, uint32_t entra
 	return nro_marco;
 };
 
-uint32_t leer_posicion_de_memoria(uint32_t direccion_fisica){--
-	//sacar el emp y env
-	
-	t_buffer* buffer = malloc(sizeof(t_buffer));
-	buffer->size = sizeof(uint32_t);
-	buffer->stream = malloc(buffer->size);
+uint32_t leer_posicion_de_memoria(uint32_t direccion_fisica){
+	int lec = LECTURA_EN_MEMORIA;
+
+	send(conexion_memoria, &lec, sizeof(uint32_t), 0);
+	send(conexion_memoria, &direccion_fisica, sizeof(uint32_t), 0);
 	uint32_t dato_leido = 0;
-
-	memcpy(buffer->stream, &direccion_fisica, sizeof(uint32_t));
-
-	empaquetar_y_enviar(buffer, conexion_memoria, LECTURA_EN_MEMORIA);
 
 	recv(conexion_memoria, &dato_leido, sizeof(uint32_t), MSG_WAITALL);
 
 	return dato_leido;
 }
 
-void escribir_en_posicion_de_memoria(uint32_t direccion_fisica, uint32_t dato_a_escribir){-- // sacar el emp y env
-	uint32_t offset = 0;
+void escribir_en_posicion_de_memoria(uint32_t direccion_fisica, uint32_t dato_a_escribir){
+	int esc = ESCRITURA_EN_MEMORIA;
+
+	send(conexion_memoria, &esc, sizeof(uint32_t), 0);
+	send(conexion_memoria, &direccion_fisica, sizeof(uint32_t), 0);
+	send(conexion_memoria, &dato_a_escribir, sizeof(uint32_t), 0);
+
 	uint32_t nro_marco;
-	t_buffer* buffer = malloc(sizeof(t_buffer));
-	buffer->size = 2 * sizeof(uint32_t);
-	buffer->stream = malloc(buffer->size);
-
-	memcpy(buffer->stream + offset, &direccion_fisica, sizeof(uint32_t));
-	offset += sizeof(uint32_t);
-	memcpy(buffer->stream + offset, &dato_a_escribir, sizeof(uint32_t));
-
-	empaquetar_y_enviar(buffer, conexion_memoria, ESCRITURA_EN_MEMORIA);
 	
 	recv(conexion_memoria, &nro_marco, sizeof(uint32_t), MSG_WAITALL);
 }
