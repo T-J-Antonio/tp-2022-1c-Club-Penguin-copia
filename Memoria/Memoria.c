@@ -265,7 +265,7 @@ void crear_swap(int pid, int cantidad_de_marcos){
 	strcat(swp->path_swap, string_itoa(pid));
 	strcat(swp->path_swap, ".txt");
 	printf("el path es %s\n", swp->path_swap);
-	int swp_file = open (swp->path_swap, O_RDWR | O_CREAT, (mode_t)0600 );
+	int swp_file = open (swp->path_swap, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600 );
 	off_t tam = cantidad_de_marcos * tam_pagina;
 	ftruncate(swp_file, tam); //esto lo uso para agrandar el archivo a esa cantidad de bits
  	swp->swap_map = mmap (0, tam, PROT_READ | PROT_WRITE, MAP_SHARED, swp_file, 0);
@@ -379,11 +379,6 @@ uint32_t crear_proceso(int tamanio_en_memoria, int pid){ // tengo que iniciar la
 void liberar_marcos(int pid){ //aca no vuelco a swap porque sino complico mas las cosas, tambien tengo que liberar en la estructura grande
 	estructura_administrativa_de_marcos* admin = (estructura_administrativa_de_marcos*) dictionary_get(diccionario_marcos, string_itoa(pid));
 	int i;
-	for(i = 0; i < marcos_por_proceso; i++){
-		if(admin->marcos_asignados[i] != -1){
-			estado_de_marcos[admin->marcos_asignados[i]] = 1; //aca el admin almacena el num de marco estaba mal liberar el i porque sino pediamos cualquier dato no el  correcto
-		}
-	}
 	free(admin->marcos_asignados);
 	dictionary_remove(diccionario_marcos, string_itoa(pid));
 	free(admin);
