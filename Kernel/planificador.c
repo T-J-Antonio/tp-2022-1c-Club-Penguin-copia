@@ -257,6 +257,7 @@ void* recibir_pcb_de_cpu(void* nada){
 				io[1] = ((float)time(NULL))*1000;
 				char* string_pid = string_itoa(proceso_recibido->pid);
 				proceso_recibido->real_actual = io[1] - proceso_recibido->timestamp_inicio_exe;
+				log_info(logger, "vengo a hacer io: %d, mi nuevo real actual es: %f", proceso_recibido->pid, proceso_recibido->real_actual);
 				sem_wait(&mutex_cola_suspendido);
 
 				dictionary_put(pid_handler, string_pid, (void*) io);
@@ -278,6 +279,7 @@ void* recibir_pcb_de_cpu(void* nada){
 				recv(conexion_memoria, &rta, sizeof(uint32_t), MSG_WAITALL); 
 				
 				send(proceso_recibido->socket_consola, &finalizar, sizeof(uint32_t), 0); //aviso a la consola que termino su proceso
+				log_info(logger, "finalizo el proceso: %d", proceso_recibido->pid);
 				liberar_pcb(proceso_recibido);
 				sem_post(&sem_contador_multiprogramacion);
 				sem_post(&binario_plani_corto);
@@ -288,6 +290,7 @@ void* recibir_pcb_de_cpu(void* nada){
 				recibir_pcb(conexion_CPU_dispatch, ejecutado);
 
 				ejecutado->estimacion_siguiente = ejecutado->estimacion_siguiente - (((float)time(NULL)*1000) - ejecutado->timestamp_inicio_exe);
+				log_info(logger, "se me interrumpio: %d, mi nueva estimacion es: %f", ejecutado->pid, ejecutado->estimacion_siguiente);
 
 				flag_respuesta_a_interrupcion = 1;
 				sem_post(&binario_flag_interrupt);
@@ -329,12 +332,16 @@ void* planificador_de_corto_plazo(void* nada){
 			pcb* candidato_del_stack;
 			switch(flag_respuesta_a_interrupcion){
 				case 1:{
+					log_info(logger, "caso 1 desaloje al proceso: %d", ejecutado->pid);
 					candidato_del_stack = algoritmo_srt(); //ver quien es el mas corto en la lista de ready
+					log_info(logger, "El planificador desalojado tiene estimacion: %f, y el candidato: %f", ejecutado->estimacion_siguiente, candidato_del_stack->estimacion_siguiente);
 					if(ejecutado->estimacion_siguiente <= candidato_del_stack->estimacion_siguiente){ //aca se fija si el de la cpu es mas corto y lo pone en running
+						log_info(logger, "el que pasa a running es: %d", ejecutado->pid);
 						pasar_a_running(ejecutado);
 						//liberar_pcb(candidato_del_stack);
 					}
 					else{
+						log_info(logger, "el que pasa a running es: %d", candidato_del_stack->pid);
 						remover_de_cola_ready(candidato_del_stack);
 						pasar_a_running(candidato_del_stack);
 						sem_wait(&mutex_cola_ready);
@@ -345,6 +352,7 @@ void* planificador_de_corto_plazo(void* nada){
 					break;
 				}
 				case 2:{			//caso en el que la cpu esta vacia y no nos da nada
+					log_info(logger, "caso 2 la cpu esta vacia");
 					candidato_del_stack = algoritmo_srt();
 					remover_de_cola_ready(candidato_del_stack);
 					pasar_a_running(candidato_del_stack);
@@ -415,5 +423,6 @@ void remover_de_cola_ready(pcb* item){
 
 void hacer_cuenta_srt(pcb* proceso_deseado){ //esto hay que llamarlo dentro de los semaforos
 	proceso_deseado->estimacion_siguiente = proceso_deseado->real_actual * alfa + (proceso_deseado->estimacion_siguiente * (1 - alfa));
+	log_info(logger, "recalcule la estimacion del proceso: %d, su nueva estimacion es: %f", proceso_deseado->pid, proceso_deseado->estimacion_siguiente);
 	
 }
