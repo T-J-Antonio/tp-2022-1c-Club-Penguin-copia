@@ -63,6 +63,7 @@ void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la
 
 		if(!valor){ 
 			proceso = (pcb*) queue_pop(cola_procesos_sus_ready);
+			printf("el pid que mando a resumir es el del proceso: %d\n", proceso->pid);
 			send(conexion_memoria, &rean_proc, sizeof(uint32_t), 0);
 			send(conexion_memoria, &proceso->pid, sizeof(uint32_t), 0);
 			send(conexion_memoria, &proceso->tabla_paginas, sizeof(uint32_t), 0);
@@ -127,6 +128,7 @@ void* realizar_io(void* proceso_sin_castear){
 	int sus = SUSPENDER_PROCESO;
 	int rta;
 	pcb* proceso = (pcb*)proceso_sin_castear;
+	printf("el proceso: %d se inicia sus io\n", proceso->pid);
 
 	float aux [2];
 	char* string_pid = string_itoa(proceso->pid);
@@ -194,7 +196,7 @@ void* dispositivo_io(void* nada){ //ESTE HAY QUE HACERLE UN HILO
 		int cantidad_en_io = 0;
 		sem_wait(&signal_a_io);
 		sem_getvalue(&signal_a_io, &cantidad_en_io);
-		printf("a hacer iooooooooooooooooooooooooooooo");
+		//printf("a hacer iooooooooooooooooooooooooooooo");
 		cantidad_en_io++;
 		if(cantidad_en_io){
 			sem_wait(&mutex_cola_suspendido);
@@ -206,23 +208,25 @@ void* dispositivo_io(void* nada){ //ESTE HAY QUE HACERLE UN HILO
 
 			}else sem_post(&signal_a_io);
 			for(int i=1; i<=cantidad_en_io; i++ ){
+				usleep(((useconds_t)5) * (useconds_t)1000);
 				float tiempo_actual = ((float) time(NULL))*1000;
 				// checkear si la diferencia entre tiempo de pcb y actual es mayor a la espera maxima, entonces subo el grado de multiprogramacion
 				pcb* proceso_sus = (pcb*) queue_pop(cola_de_io);
 				char* string_pid = string_itoa(proceso_sus->pid);
-				void* temporal = dictionary_get(pid_handler, string_pid);
-				float io[2];
-				memcpy(io, temporal, sizeof(float)*2);
-				if((tiempo_actual - io[1]) > tiempo_de_espera_max) {
-					sem_post(&sem_contador_multiprogramacion); 
-					char* string_pid = string_itoa(proceso_sus->pid);
+				float* io  = (float*) dictionary_get(pid_handler, string_pid);
+				char* estado = (char*) dictionary_get(process_state, string_pid);
+				
+				if((tiempo_actual - io[1]) > tiempo_de_espera_max && strcmp(estado, "blocked")==0) {
+					sem_post(&sem_contador_multiprogramacion);
 					// avisar a memoria que se suspende el proceso!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 					send(conexion_memoria, &sus, sizeof(int), 0);
 					send(conexion_memoria, &proceso_sus->tabla_paginas, sizeof(uint32_t), 0);
 					recv(conexion_memoria, &rta, sizeof(int), MSG_WAITALL);
 					dictionary_put(process_state, string_pid, "suspended blocked");
 				}
+				free(string_pid);
 				queue_push(cola_de_io, (void*) proceso_sus);
+				//free(proceso_sus);
 			}
 			sem_post(&mutex_cola_suspendido);
 		}
