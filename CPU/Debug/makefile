@@ -28,7 +28,7 @@ all: CPU
 CPU: $(OBJS) $(USER_OBJS)
 	@echo 'Building target: $@'
 	@echo 'Invoking: GCC C Linker'
-	gcc -pthread -o "CPU" $(OBJS) $(USER_OBJS) $(LIBS) -m32
+	gcc -pthread -o "CPU" $(OBJS) $(USER_OBJS) $(LIBS)
 	@echo 'Finished building target: $@'
 	@echo ' '
 

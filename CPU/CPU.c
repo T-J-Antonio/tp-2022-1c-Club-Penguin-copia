@@ -9,7 +9,7 @@ uint32_t cpu_libre = 4;
 int main(){
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/CPU/CPU.config");
 
-	logger = log_create("log.log", "Servidor", 1, LOG_LEVEL_DEBUG);
+	logger = log_create("CPU.log", "CPU", 1, LOG_LEVEL_DEBUG);
 
 	char* ip_cpu = config_get_string_value(config, "IP_CPU");
 	char* ip_memoria = config_get_string_value(config, "IP_MEMORIA");
@@ -29,7 +29,7 @@ int main(){
 	int socket_cpu_escucha = iniciar_servidor(ip_cpu, puerto_escucha);//ip kernel unica, pero el puerto es el del escucha,
 	int socket_cpu_interrupt = iniciar_servidor(ip_cpu, puerto_escucha_interrupt);
 
-	log_info(logger, "CPU listo para recibir al pebete");
+	//log_info(logger, "CPU listo para recibir al pebete");
 	pthread_t socket_escucha_dispatch;
 	pthread_t socket_escucha_interrupt;
 
@@ -60,22 +60,22 @@ void* escuchar_interrupciones(int socket_escucha_interrupciones, t_config* confi
 		int estado_cpu = 0;
 		int codigo_de_paquete = recibir_operacion(cliente_fd);
 		if (codigo_de_paquete == -1){
-			printf("se cayo el socket\n");
+			log_info(logger, "Error de socket");
 			return NULL;
 		}
 		sem_wait(&mutex_interrupciones);
-		printf("llego int\n");
+		log_info(logger, "Recibida interrupción de CPU");
 		sem_getvalue(&cpu_en_running, &estado_cpu);
 		switch(codigo_de_paquete) {
 		case OPERACION_INTERRUPT:
-			printf("espere el semaforo\n");
+			//printf("espere el semaforo\n");
 			if(!estado_cpu){
-				printf("lugar deseado\n");
+				//printf("lugar deseado\n");
 				int cant = send(cliente_dispatch, &cpu_libre, sizeof(uint32_t), 0);
-				printf("cantidad int: %d",cant);
-				printf("hice el send");
+				//printf("cantidad int: %d",cant);
+				//printf("hice el send");
 			}else{
-				printf("lugar no deseado\n");
+				//printf("lugar no deseado\n");
 				hay_interrupciones++;
 			}
 			sem_post(&mutex_interrupciones);
@@ -91,7 +91,7 @@ void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
 
 		int codigo_de_paquete = recibir_operacion(socket_escucha_dispatch);
 		if(codigo_de_paquete == -1){
-			printf("se cayo el socket dispatch\n");
+			log_info(logger, "Error de socket");
 			return NULL;
 		}
 		sem_post(&cpu_en_running);
@@ -153,7 +153,7 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 		direccion_fisica = obtener_direccion_fisica(instruccion_a_ejecutar->parametros[0], proceso_en_ejecucion->tabla_paginas, proceso_en_ejecucion->pid);
 		nro_pagina = numero_pagina(instruccion_a_ejecutar->parametros[0]);
 		dato_leido = leer_posicion_de_memoria(direccion_fisica, proceso_en_ejecucion->pid, nro_pagina);
-		printf("El dato leido es: %d\n", dato_leido);
+		printf("El dato leído es: %d\n", dato_leido);
 		++(proceso_en_ejecucion->program_counter);
 		break;
 	case WRITE:

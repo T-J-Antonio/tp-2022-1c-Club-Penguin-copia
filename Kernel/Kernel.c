@@ -1,7 +1,6 @@
 #include "planificador.h"
 
 int main(void) {
-	printf("starting");
 	inicio = 1;
 	pid_handler = dictionary_create();
 	process_state = dictionary_create();
@@ -28,7 +27,8 @@ int main(void) {
 
 
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/Kernel/kernel.config");
-	logger = log_create("log.log", "Servidor", 1, LOG_LEVEL_DEBUG);
+	logger = log_create("Kernel.log", "Kernel", 1, LOG_LEVEL_DEBUG);
+	log_info(logger, "Comenzando Kernel");
 
 	char* ip_CPU = config_get_string_value(config, "IP_CPU");
 	char* puerto_CPU = config_get_string_value(config, "PUERTO_CPU_DISPATCH");

@@ -41,7 +41,7 @@ uint32_t* estado_de_marcos;
 
 int main(){
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/Memoria/memoria.config");
-	logger = log_create("log.log", "Servidor", 1, LOG_LEVEL_DEBUG);
+	logger = log_create("Memoria.log", "Memoria", 1, LOG_LEVEL_DEBUG);
 
 	char* ip_memoria = config_get_string_value(config, "IP_MEMORIA");
 	char* puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
@@ -111,8 +111,8 @@ void* atender_cpu(void* nada){
 		case ACCESO_A_1RA_TABLA:
 			recv(cliente_cpu, &tabla_paginas, sizeof(uint32_t), MSG_WAITALL);
 			recv(cliente_cpu, &entrada_tabla_1er_nivel, sizeof(uint32_t), MSG_WAITALL);
-			printf("tabla_paginas: %d\n", tabla_paginas);
-			printf("entrada_tabla_1er_nivel: %d\n", entrada_tabla_1er_nivel);
+			//printf("tabla_paginas: %d\n", tabla_paginas);
+			//printf("entrada_tabla_1er_nivel: %d\n", entrada_tabla_1er_nivel);
 			index_tabla_2do_nivel = respuesta_a_pregunta_de_1er_acceso(tabla_paginas, entrada_tabla_1er_nivel);
 			send(cliente_cpu, &index_tabla_2do_nivel, sizeof(int), 0);
 			break;
@@ -155,7 +155,7 @@ uint32_t leer_posicion(uint32_t direccion_fisica, uint32_t pid, uint32_t nro_pag
 	memcpy(&dato_leido, espacio_memoria_user + direccion_fisica, sizeof(uint32_t));   // lee 1 uint o lee la pagina entera?
 	tabla_de_segundo_nivel* tabla = get_tabla(pid, nro_pag);
 	tabla->bit_de_uso =1;
-	printf("dato leido %d\n", dato_leido);
+	//printf("dato leido %d\n", dato_leido);
 	return dato_leido;
 }
 
@@ -166,7 +166,7 @@ void escribir_en_posicion(uint32_t direccion_fisica, uint32_t dato_a_escribir, u
 	tabla_de_segundo_nivel* tabla = get_tabla(pid, nro_pag);
 	tabla->bit_de_uso =1;
 	tabla->bit_modificado =1;
-	printf("dato escrito %d\n", dato_a_escribir);
+	log_info(logger, "Escrito dato: %d\n", dato_a_escribir);
 }
 
 
@@ -189,7 +189,7 @@ void* atender_kernel(void* input){
 	int cliente_fd = *(int *) input;
 	// atender cualquier msg del kernel
 	int rtaOk = 1;
-	printf("voy a esperar al kernel\n");
+	//printf("voy a esperar al kernel\n");
 	while(1){
 		int codigo_de_paquete = recibir_operacion(cliente_fd);
 		int tam_mem;
@@ -214,20 +214,18 @@ void* atender_kernel(void* input){
 		break;
 
 		case REANUDAR_PROCESO:
-			printf("me llamaron a reanudar\n");
 			pid = recibir_operacion(cliente_fd);
 			index = recibir_operacion(cliente_fd);
 			reanudar_proceso(pid, index);
 			send(cliente_fd, &rtaOk, sizeof(u_int32_t), 0);
-			printf("reanude\n");
+			log_info(logger, "Proceso reanudado");
 		break;
 
 		case SUSPENDER_PROCESO:
-			printf("me llamaron a suspender\n");
 			index = recibir_operacion(cliente_fd);
 			suspender_proceso(index);
 			send(cliente_fd, &rtaOk, sizeof(u_int32_t), 0);
-			printf("suspendi\n");
+			log_info(logger, "Proceso reanudado");
 		break;
 		}
 	}
@@ -264,7 +262,7 @@ void crear_swap(int pid, int cantidad_de_marcos){
 	memcpy(swp->path_swap, path_swap, strlen(path_swap));
 	memcpy(swp->path_swap + strlen(path_swap), string_itoa(pid), strlen(string_itoa(pid)));
 	memcpy(swp->path_swap + strlen(path_swap) + strlen(string_itoa(pid)), ".txt", strlen(".txt")+1);	
-	printf("el path es %s\n", swp->path_swap);
+	log_info(logger, "El path de este archivo de swap es %s\n", swp->path_swap);
 	int swp_file = open (swp->path_swap, O_RDWR | O_CREAT | O_TRUNC, (mode_t)0600 );
 	off_t tam = cantidad_de_marcos * tam_pagina;
 	ftruncate(swp_file, tam); //esto lo uso para agrandar el archivo a esa cantidad de bits
@@ -275,7 +273,6 @@ void crear_swap(int pid, int cantidad_de_marcos){
 	close(swp_file);
 }
 
-//Dezplazamiento es nro_pag * tam_pag
 
 
 void volcar_pagina_en_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
@@ -377,12 +374,12 @@ uint32_t crear_proceso(int tamanio_en_memoria, int pid){ // tengo que iniciar la
 }
 
 void liberar_marcos(int pid){ //aca no vuelco a swap porque sino complico mas las cosas, tambien tengo que liberar en la estructura grande
-	printf("me llamo para liberar el proceso: %d\n", pid);
 	estructura_administrativa_de_marcos* admin = (estructura_administrativa_de_marcos*) dictionary_get(diccionario_marcos, string_itoa(pid));
 	int i;
 	free(admin->marcos_asignados);
 	dictionary_remove(diccionario_marcos, string_itoa(pid));
 	free(admin);
+	log_info(logger, "Liberados marcos del proceso %d", pid);
 }
 
 void suspender_proceso(int index_tabla){
@@ -423,7 +420,7 @@ void suspender_proceso(int index_tabla){
 
 void eliminar_proceso(int index_tabla, uint32_t memoria_total){ //aca hay que destruir las tablas de paginas de memoria total recibo el dato crudo hay que meter la cuenta
 	int pid = *(int*)dictionary_remove(diccionario_pid, string_itoa(index_tabla));
-	printf("este es el index problematico: %d\n", index_tabla);
+	//printf("este es el index problematico: %d\n", index_tabla);
 	//t_list* tabla_1er_nivel = (t_list*) list_remove(lista_global_de_tablas_de_1er_nivel, index_tabla);
 
 	//int tamanio_lista = list_size(tabla_1er_nivel);
@@ -449,7 +446,7 @@ void eliminar_proceso(int index_tabla, uint32_t memoria_total){ //aca hay que de
 //---------------------------respuestas a accesos a memoria-----------------------------------------------------------------------
 
 int respuesta_a_pregunta_de_1er_acceso(int index_tabla, int entrada){
-	printf("index tabla: %d\n", index_tabla);
+	//printf("index tabla: %d\n", index_tabla);
 	t_list* tabla_1er_nivel = list_get(lista_global_de_tablas_de_1er_nivel, index_tabla);
 	int index_tabla_2do_nivel = *(int*) list_get(tabla_1er_nivel, entrada);
 	return index_tabla_2do_nivel;

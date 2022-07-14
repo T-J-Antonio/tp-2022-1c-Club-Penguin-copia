@@ -63,7 +63,7 @@ void* recibir_buffer(int* size, int socket_cliente)
 															// Al hacer el recv, el size se pierde, socket_cliente va a apuntar no al inicio, si no 4 bytes desplazados, o sea a donde comienzan las instrucciones
 	recv(socket_cliente, size, sizeof(int), MSG_WAITALL);   // Almacena en size lo que hay dentro de los primeros 4 bytes, que es el tamaño que van a ocupar las instrucciones
 	buffer = malloc(*size);									// Le asignamos al buffer el tamaño que requerira para almacenar esas instrucciones
-	printf("tam: %d\n", *size);
+	//printf("tam: %d\n", *size);
 	recv(socket_cliente, buffer, *size, MSG_WAITALL);		// Le damos las instrucciones
 
 	return buffer;
@@ -146,9 +146,9 @@ void empaquetar_y_enviar_i_o(t_buffer* buffer, int socket, uint32_t codigo_opera
 	memcpy(a_enviar + offset, &(paquete->buffer->size), sizeof(uint32_t));
 	offset += sizeof(uint32_t);
 	memcpy(a_enviar + offset, paquete->buffer->stream, paquete->buffer->size);
-	printf("a enviar: %d\n", buffer->size + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t));
+	//printf("a enviar: %d\n", buffer->size + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t));
 	int enviado = send(socket, a_enviar, buffer->size + sizeof(uint32_t) + sizeof(uint32_t) + sizeof(uint32_t), 0);
-	printf("enviado: %d\n", enviado);
+	//printf("enviado: %d\n", enviado);
 
 	// No nos olvidamos de liberar la memoria que ya no usaremos
 	free(a_enviar);
@@ -315,8 +315,8 @@ uint32_t obtener_direccion_fisica(uint32_t direccion_logica, uint32_t tabla_pagi
 	}
 	else {
 		uint32_t tabla_1er_nivel = entrada_tabla_1er_nivel(nro_pagina);
-		printf("nro de indice: %d\n", tabla_1er_nivel);
-		printf("tabla pags: %d\n", tabla_paginas);
+		//printf("nro de indice: %d\n", tabla_1er_nivel);
+		//printf("tabla pags: %d\n", tabla_paginas);
 		uint32_t index_tabla_2do_nivel = primer_acceso_a_memoria(tabla_paginas, tabla_1er_nivel);
 		
 		uint32_t tabla_2do_nivel = entrada_tabla_2do_nivel(nro_pagina);
