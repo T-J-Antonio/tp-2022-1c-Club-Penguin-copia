@@ -57,7 +57,7 @@ void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la
 		sem_wait(&contador_de_listas_esperando_para_estar_en_ready);
 		sem_wait(&sem_contador_multiprogramacion);
 		sem_wait(&mutex_cola_sus_ready);
-		log_Info(logger, "Llego un proceso nuevo a la cola de listo");
+		log_info(logger, "Llego un proceso nuevo a la cola de listo");
 
 		valor = queue_is_empty(cola_procesos_sus_ready); // devuelve un valor distinto a cero si la cola esta vacia se hace adentro del sem, porque la cola puede modificarse
 
@@ -287,7 +287,7 @@ void* recibir_pcb_de_cpu(void* nada){
 				ejecutado = malloc(sizeof(pcb));
 				recibir_pcb(conexion_CPU_dispatch, ejecutado);
 
-				ejecutado->estimacion_siguiente = ((float)time(NULL)*1000) - ejecutado->estimacion_siguiente; //son detalles
+				ejecutado->estimacion_siguiente = ejecutado->estimacion_siguiente - (((float)time(NULL)*1000) - ejecutado->timestamp_inicio_exe);
 
 				flag_respuesta_a_interrupcion = 1;
 				sem_post(&binario_flag_interrupt);
@@ -332,7 +332,7 @@ void* planificador_de_corto_plazo(void* nada){
 					candidato_del_stack = algoritmo_srt(); //ver quien es el mas corto en la lista de ready
 					if(ejecutado->estimacion_siguiente <= candidato_del_stack->estimacion_siguiente){ //aca se fija si el de la cpu es mas corto y lo pone en running
 						pasar_a_running(ejecutado);
-						liberar_pcb(candidato_del_stack);
+						//liberar_pcb(candidato_del_stack);
 					}
 					else{
 						remover_de_cola_ready(candidato_del_stack);
