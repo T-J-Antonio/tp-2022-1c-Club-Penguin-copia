@@ -24,6 +24,7 @@ int main(void) {
 	cola_procesos_sus_ready = queue_create();
 	cola_de_ready = queue_create();
 	cola_de_io = queue_create();
+	rta_int = queue_create();
 
 
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/Kernel/kernel.config");

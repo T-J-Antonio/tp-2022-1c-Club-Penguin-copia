@@ -288,6 +288,15 @@ void* recibir_pcb_de_cpu(void* nada){
 
 			case RESPUESTA_INTERRUPT:
 				flag_respuesta_a_interrupcion = 1;
+				pcb* ejecutado = malloc(sizeof(pcb));
+				recibir_pcb(conexion_CPU_dispatch, ejecutado);
+				queue_push(rta_int, (void*) ejecutado);
+
+				log_info(logger, "El proceso %d fue interrumpido y su est es originalmente:%f", ejecutado->pid, ejecutado->estimacion_siguiente);
+
+				log_info(logger, "tiempo de inicio a exe: %f, tiempo actual: %f", ejecutado->timestamp_inicio_exe, ((float)time(NULL)*1000));
+
+				ejecutado->estimacion_siguiente = ejecutado->estimacion_siguiente - (((float)time(NULL)*1000) - ejecutado->timestamp_inicio_exe);
 				sem_post(&binario_flag_interrupt);
 
 				break;
@@ -322,21 +331,12 @@ void* planificador_de_corto_plazo(void* nada){
 			log_info(logger, "El planificador SRT envía interrupción a CPU");
 			sem_wait(&binario_flag_interrupt);
 			log_info(logger, "Respuesta de CPU recibida");
+			pcb* candidato_del_stack = (pcb*) queue_pop(rta_int);
 
 
-			pcb* candidato_del_stack;
+
 			switch(flag_respuesta_a_interrupcion){
-				case 1:{
-				pcb* ejecutado = malloc(sizeof(pcb));
-				recibir_pcb(conexion_CPU_dispatch, ejecutado);
-
-				log_info(logger, "El proceso %d fue interrumpido y su est es originalmente:%f", ejecutado->pid, ejecutado->estimacion_siguiente);
-
-				log_info(logger, "tiempo de inicio a exe: %f, tiempo actual: %f", ejecutado->timestamp_inicio_exe, ((float)time(NULL)*1000));
-
-				ejecutado->estimacion_siguiente = ejecutado->estimacion_siguiente - (((float)time(NULL)*1000) - ejecutado->timestamp_inicio_exe);
-				
-				
+				case 1:{				
 				log_info(logger, "se me interrumpio: %d, mi nueva estimacion es: %f", ejecutado->pid, ejecutado->estimacion_siguiente);
 					log_info(logger, "caso 1 desaloje al proceso: %d", ejecutado->pid);
 					candidato_del_stack = algoritmo_srt(); //ver quien es el mas corto en la lista de ready

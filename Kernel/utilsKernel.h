@@ -103,6 +103,8 @@ t_queue* cola_procesos_sus_ready;
 
 t_queue* cola_de_ready;
 
+t_queue* rta_int;
+
 t_queue* cola_de_io;
 
 t_dictionary* pid_handler;
