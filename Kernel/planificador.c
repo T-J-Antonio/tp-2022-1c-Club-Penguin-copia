@@ -116,7 +116,7 @@ void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la
 
 
 void pasar_a_running(pcb* proceso_ready){
-	proceso_ready->timestamp_inicio_exe = (currentTimeMillis());
+	
 	//printf("tamanio = %d",proceso_ready->tamanio_stream_instrucciones);
 	log_info(logger, "El proceso %d se va a running, su estimacion es: %ld", proceso_ready->pid, proceso_ready->estimacion_siguiente);
 	t_buffer* pcb_serializado = malloc(sizeof(t_buffer));
@@ -355,6 +355,7 @@ void* planificador_de_corto_plazo(void* nada){
 					else{
 						log_info(logger, "el que pasa a running es: %d", candidato_del_stack->pid);
 						remover_de_cola_ready(candidato_del_stack);
+						candidato_del_stack->timestamp_inicio_exe = (currentTimeMillis());
 						pasar_a_running(candidato_del_stack);
 						sem_wait(&mutex_cola_ready);
 						queue_push(cola_de_ready, ejecutado);
@@ -367,6 +368,7 @@ void* planificador_de_corto_plazo(void* nada){
 					log_info(logger, "caso 2 la cpu esta vacia");
 					candidato_del_stack = algoritmo_srt();
 					remover_de_cola_ready(candidato_del_stack);
+					candidato_del_stack->timestamp_inicio_exe = (currentTimeMillis());
 					pasar_a_running(candidato_del_stack);
 					break;
 				}
