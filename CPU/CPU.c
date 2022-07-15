@@ -100,6 +100,7 @@ void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
 		case OPERACION_ENVIO_PCB:
 			recibir_pcb(socket_escucha_dispatch, recibido);
 			log_info(logger, "A cpu le llego el proceso: %d", recibido->pid);
+			log_info(logger, "el proceso recibido tiene inicio: %ld y estimacion: %ld", recibido->timestamp_inicio_exe, recibido->estimacion_siguiente);
 			for(int i = recibido->program_counter; i < list_size(recibido->instrucciones); i++){
 				ciclo_de_instruccion(recibido, socket_escucha_dispatch);//aca cambio el cliente por socket ojo
 				instruccion* ejecutada = list_get(recibido->instrucciones, recibido->program_counter - 1);
@@ -138,6 +139,7 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 	//execute
 	switch(cod_op){
 	case NO_OP:
+		log_info(logger, "el proceso: %d hizo noop", proceso_en_ejecucion->pid);
 		sleep(tiempo_espera);
 		++(proceso_en_ejecucion->program_counter);
 		break;
@@ -145,6 +147,7 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 	case I_O:
 		++(proceso_en_ejecucion->program_counter);
 		tiempo_bloqueo = instruccion_a_ejecutar->parametros[0];
+		log_info(logger, "el proceso: %d se va a hacer io", proceso_en_ejecucion->pid);
 		pcb_actualizado = serializar_header(proceso_en_ejecucion);
 		empaquetar_y_enviar_i_o(pcb_actualizado, socket_escucha_dispatch, OPERACION_IO, tiempo_bloqueo);
 		vaciar_tlb();
@@ -175,6 +178,7 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 
 	case EXIT:
 		++(proceso_en_ejecucion->program_counter);
+		log_info(logger, "finaliza el proceso: %d", proceso_en_ejecucion->pid);
 		pcb_actualizado = serializar_header(proceso_en_ejecucion);
 		empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, OPERACION_EXIT);
 		vaciar_tlb();
@@ -188,7 +192,9 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 
 		if(cod_op == I_O || cod_op == EXIT)
 			send(socket_escucha_dispatch, &cpu_libre, sizeof(uint32_t), 0);
+			log_info(logger, "llego int pero estoy libre");
 		else{
+			log_info(logger, "llego int y desalojo al proceso: %d", proceso_en_ejecucion->pid);
 			pcb_actualizado = serializar_header(proceso_en_ejecucion);
 			empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, RESPUESTA_INTERRUPT);
 			vaciar_tlb();
