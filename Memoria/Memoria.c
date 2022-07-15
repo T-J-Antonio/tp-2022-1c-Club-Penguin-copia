@@ -413,7 +413,7 @@ void suspender_proceso(int index_tabla){
 			tabla_de_segundo_nivel * pagina = list_get(tabla_2do_nivel, iterator_2do_nivel);
 			if(pagina->bit_modificado == 1 && pagina->bit_presencia == 1){
 				volcar_pagina_en_swap(pid, pagina->numero_pagina * tam_pagina, espacio_memoria_user + (pagina->marco *tam_pagina));
-				log_info(logger, "Se lleva la Pagina %d a swap", pagina->numero_pagina);
+				log_info(logger, "Se lleva la Pagina %d a swap, por suspension del proceso alojada en el marco: %d", pagina->numero_pagina, pagina->marco);
 				pagina->bit_de_uso = 0;
 				pagina->bit_modificado = 0;
 				pagina->bit_presencia = 0;
@@ -497,6 +497,7 @@ int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pi
 	int acceso = ACCESO_A_2DA_TABLA;
 	tabla_de_segundo_nivel* dato = (tabla_de_segundo_nivel*) list_get(tabla_2do_nivel, entrada); //cambiar el nombre de el struct te la debo mepa
 	if(dato->bit_presencia == 1){
+		log_info(logger, "La pagina estaba cargada");
 		dato->bit_de_uso = 1;
 		send(cliente_cpu, &acceso, sizeof(uint32_t), 0);
 		return dato->marco;
@@ -505,6 +506,7 @@ int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pi
 	else{
 		marco = primer_marco_libre_del_proceso(estructura);
 		if(marco == -1){
+			log_info(logger, "No tenia marco libre procedo a reemplazar");
 			marco_a_asignar = reemplazar_marco(estructura, pid);
 			dato->marco = marco_a_asignar;
 			estructura->offset++;
@@ -517,9 +519,11 @@ int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pi
 		else{
 			marco_a_asignar = primer_marco_libre();
 			estructura->marcos_asignados[marco] = marco_a_asignar;
-			estructura->offset = marco;
+			estructura->offset++;
 			estructura->offset = estructura->offset % marcos_por_proceso;
 			estado_de_marcos[marco_a_asignar] = 0;
+			
+			
 			dato->marco = marco_a_asignar;
 			dato->bit_presencia = 1;
 			dato->bit_modificado = 0;
@@ -589,7 +593,7 @@ int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ /
 					if((dato->bit_de_uso ==0) && (dato->bit_modificado == 0)){
 						dato->bit_presencia = 0; 
 						dato->bit_de_uso = 0;
-						log_info(logger, "reemplazo el marco %d %d a swap", adm->marcos_asignados[adm->offset]);
+						log_info(logger, "reemplazo el marco %d a swap", adm->marcos_asignados[adm->offset]);
 						log_info(logger, "que tiene la pagina %d", dato->numero_pagina);
 						if(dato->bit_modificado){
 							volcar_pagina_en_swap(pid, (dato->numero_pagina * tam_pagina), espacio_memoria_user + (dato->marco * tam_pagina));
