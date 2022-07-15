@@ -331,13 +331,14 @@ void* planificador_de_corto_plazo(void* nada){
 			log_info(logger, "El planificador SRT envía interrupción a CPU");
 			sem_wait(&binario_flag_interrupt);
 			log_info(logger, "Respuesta de CPU recibida");
-			pcb* candidato_del_stack = (pcb*) queue_pop(rta_int);
+			pcb* candidato_del_stack;
 
 
 
 			switch(flag_respuesta_a_interrupcion){
-				case 1:{				
-				log_info(logger, "se me interrumpio: %d, mi nueva estimacion es: %f", ejecutado->pid, ejecutado->estimacion_siguiente);
+				case 1:{
+					pcb* ejecutado = (pcb*) queue_pop(rta_int);
+					log_info(logger, "se me interrumpio: %d, mi nueva estimacion es: %f", ejecutado->pid, ejecutado->estimacion_siguiente);
 					log_info(logger, "caso 1 desaloje al proceso: %d", ejecutado->pid);
 					candidato_del_stack = algoritmo_srt(); //ver quien es el mas corto en la lista de ready
 					log_info(logger, "El planificador desalojado tiene estimacion: %f, y el candidato: %f", ejecutado->estimacion_siguiente, candidato_del_stack->estimacion_siguiente);
