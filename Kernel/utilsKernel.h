@@ -123,7 +123,6 @@ float alfa;
 int flag_respuesta_a_interrupcion; //CORREGIR INTERRUPCION CON DOBLE R
 int conexion_cpu_interrupt;
 float tiempo_de_espera_max;
-pcb* ejecutado;
 float tiempo_inicio;
 int int_modo_planificacion;
 
