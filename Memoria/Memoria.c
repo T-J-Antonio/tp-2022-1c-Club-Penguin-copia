@@ -361,7 +361,6 @@ void reanudar_proceso(uint32_t pid, uint32_t primera_pag){
 
 uint32_t crear_proceso(int tamanio_en_memoria, int pid){ // tengo que iniciar las nuevas estrucutras tmb
 	uint32_t cantidad_de_entradas_de_paginas_2do_nivel = tamanio_en_memoria / tam_pagina;
-	
 	if((tamanio_en_memoria % tam_pagina) > 0){
 		cantidad_de_entradas_de_paginas_2do_nivel++;
 	}
@@ -433,22 +432,8 @@ void suspender_proceso(int index_tabla){
 
 void eliminar_proceso(int index_tabla, uint32_t memoria_total){ //aca hay que destruir las tablas de paginas de memoria total recibo el dato crudo hay que meter la cuenta
 	int pid = *(int*)dictionary_remove(diccionario_pid, string_itoa(index_tabla));
-	//printf("este es el index problematico: %d\n", index_tabla);
-	//t_list* tabla_1er_nivel = (t_list*) list_remove(lista_global_de_tablas_de_1er_nivel, index_tabla);
-
-	//int tamanio_lista = list_size(tabla_1er_nivel);
-	//int iterator = 0;
-
-	//while(iterator < tamanio_lista){
-	//	int index_2da = *(int*) list_get(tabla_1er_nivel, iterator);
-	//	t_list* tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_2da);
-	//	list_destroy_and_destroy_elements(tabla_2do_nivel,free);
-	//	iterator++;
-	//}
-	//list_destroy_and_destroy_elements(tabla_1er_nivel,free);
 	liberar_marcos(pid);
 	uint32_t cantidad_de_entradas_de_paginas_2do_nivel = memoria_total / tam_pagina;
-	
 	if((memoria_total % tam_pagina) > 0){
 		cantidad_de_entradas_de_paginas_2do_nivel++;
 	}
@@ -460,6 +445,7 @@ void eliminar_proceso(int index_tabla, uint32_t memoria_total){ //aca hay que de
 
 int respuesta_a_pregunta_de_1er_acceso(int index_tabla, int entrada){
 	//printf("index tabla: %d\n", index_tabla);
+	usleep((useconds_t)retardo_mem * (useconds_t)1000);
 	t_list* tabla_1er_nivel = list_get(lista_global_de_tablas_de_1er_nivel, index_tabla);
 	int index_tabla_2do_nivel = *(int*) list_get(tabla_1er_nivel, entrada);
 	return index_tabla_2do_nivel;
@@ -489,6 +475,7 @@ int primer_marco_libre(){
 
 
 int respuesta_a_pregunta_de_2do_acceso(int index_tabla, int entrada, uint32_t pid, int cliente_cpu){ // para esto me es mas util recibir el pid del proceso para poder agarrar sus estructuras administrativas
+	usleep((useconds_t)retardo_mem * (useconds_t)1000);
 	t_list* tabla_2do_nivel = list_get(lista_global_de_tablas_de_2do_nivel, index_tabla);
 	estructura_administrativa_de_marcos* estructura = (estructura_administrativa_de_marcos*)dictionary_get(diccionario_marcos, string_itoa(pid));
 	int marco_a_asignar;
@@ -557,7 +544,6 @@ tabla_de_segundo_nivel* retornar_pagina(int indice_pagina, int marco_asignado){
 }
 
 int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ //esto va a tener clock y clock-m  ESTO VA A RETORNAR EL MARCO QUE SE VA A USAR. LA ASIGNACION LE CORRESPONDE A LA SUPERIOR A ESTA
-
 	if(strcmp(alg_reemplazo, "CLOCK") == 0 ){
 		
 		while(true){ //ojo con los while infinitos, deberia siempre llegarle una estructura correcta pero en caso de ser llamado de forma erronea 
