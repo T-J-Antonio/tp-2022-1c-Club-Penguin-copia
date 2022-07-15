@@ -14,6 +14,7 @@
 #include <pthread.h>
 #include <semaphore.h>
 #include <time.h>
+#include <sys/time.h>
 
 #define OPERACION_ENVIO_INSTRUCCIONES 0
 #define OPERACION_ENVIO_PCB 1
@@ -128,7 +129,7 @@ float tiempo_de_espera_max;
 float tiempo_inicio;
 int int_modo_planificacion;
 
-
+long currentTimeMillis();
 
 //FUNCIONES TRAÍDAS DEL TP0
 
