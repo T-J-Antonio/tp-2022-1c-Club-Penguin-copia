@@ -338,7 +338,7 @@ uint32_t obtener_direccion_fisica(uint32_t direccion_logica, uint32_t tabla_pagi
 }
 
 uint32_t algoritmo_reemplazo_to_int(char* str){
-	if(strcmp(str, "FIFO")) return REEMPLAZO_FIFO;
+	if(strcmp(str, "FIFO")==0) return REEMPLAZO_FIFO;
 	else return REEMPLAZO_LRU;
 }
 
