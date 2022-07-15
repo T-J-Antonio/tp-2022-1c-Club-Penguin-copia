@@ -92,7 +92,7 @@ void* recibir_instrucciones(int socket_cliente){
 
 
 
-void crear_header(uint32_t proximo_pid, void* buffer_instrucciones, t_config* config, pcb* header, float estimacion_inicial){
+void crear_header(uint32_t proximo_pid, void* buffer_instrucciones, t_config* config, pcb* header, long estimacion_inicial){
 	uint32_t tamanio_del_stream;
 	uint32_t offset = 0;
 	header->instrucciones = NULL;
@@ -186,7 +186,7 @@ void empaquetar_y_enviar(t_buffer* buffer, int socket, uint32_t codigo_operacion
 t_buffer* serializar_header(pcb* header){
 	t_buffer* buffer = malloc(sizeof(t_buffer));
 	uint32_t offset = 0;
-	uint32_t buffer_size = 6*sizeof(uint32_t) + header->tamanio_stream_instrucciones + sizeof(float)*3 ;
+	uint32_t buffer_size = 6*sizeof(uint32_t) + header->tamanio_stream_instrucciones + sizeof(long)*3 ;
 	buffer->size = 0;
 	buffer->size = buffer_size;
 	buffer->stream = malloc(buffer->size);
@@ -207,14 +207,14 @@ t_buffer* serializar_header(pcb* header){
 	memcpy(buffer->stream + offset, &header->tabla_paginas, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
 
-	memcpy(buffer->stream + offset, &header->estimacion_siguiente, sizeof(float));
-	offset += sizeof(float);
+	memcpy(buffer->stream + offset, &header->estimacion_siguiente, sizeof(long));
+	offset += sizeof(long);
 
-	memcpy(buffer->stream + offset, &header->timestamp_inicio_exe, sizeof(float));
-	offset += sizeof(float);
+	memcpy(buffer->stream + offset, &header->timestamp_inicio_exe, sizeof(long));
+	offset += sizeof(long);
 
-	memcpy(buffer->stream + offset, &header->real_actual, sizeof(float));
-	offset += sizeof(float);
+	memcpy(buffer->stream + offset, &header->real_actual, sizeof(long));
+	offset += sizeof(long);
 
 	memcpy(buffer->stream + offset, &header->socket_consola, sizeof(int));
 
@@ -248,14 +248,14 @@ void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
 	memcpy(&pcb_recibido->tabla_paginas, buffer + offset, sizeof(uint32_t));
 	offset+= sizeof(uint32_t);
 
-	memcpy(&pcb_recibido->estimacion_siguiente, buffer + offset, sizeof(float));
-	offset+=sizeof(float);
+	memcpy(&pcb_recibido->estimacion_siguiente, buffer + offset, sizeof(long));
+	offset+=sizeof(long);
 
-	memcpy(&pcb_recibido->timestamp_inicio_exe, buffer + offset, sizeof(float));
-	offset+=sizeof(float);
+	memcpy(&pcb_recibido->timestamp_inicio_exe, buffer + offset, sizeof(long));
+	offset+=sizeof(long);
 
-	memcpy(&pcb_recibido->real_actual, buffer + offset, sizeof(float));
-	offset+=sizeof(float);
+	memcpy(&pcb_recibido->real_actual, buffer + offset, sizeof(long));
+	offset+=sizeof(long);
 
 	memcpy(&pcb_recibido->socket_consola, buffer + offset, sizeof(int));
 

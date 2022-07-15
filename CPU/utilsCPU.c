@@ -201,14 +201,14 @@ void recibir_pcb(int socket_cliente, pcb* pcb_recibido){
 	memcpy(&pcb_recibido->tabla_paginas, buffer + offset, sizeof(uint32_t));
 	offset+=sizeof(uint32_t);
 
-	memcpy(&pcb_recibido->estimacion_siguiente, buffer + offset, sizeof(float));
-	offset+=sizeof(float);
+	memcpy(&pcb_recibido->estimacion_siguiente, buffer + offset, sizeof(long));
+	offset+=sizeof(long);
 
-	memcpy(&pcb_recibido->timestamp_inicio_exe, buffer + offset, sizeof(float));
-	offset+=sizeof(float);
+	memcpy(&pcb_recibido->timestamp_inicio_exe, buffer + offset, sizeof(long));
+	offset+=sizeof(long);
 
-	memcpy(&pcb_recibido->real_actual, buffer + offset, sizeof(float));
-	offset+=sizeof(float);
+	memcpy(&pcb_recibido->real_actual, buffer + offset, sizeof(long));
+	offset+=sizeof(long);
 
 	memcpy(&pcb_recibido->socket_consola, buffer + offset, sizeof(int));
 
@@ -238,7 +238,7 @@ uint32_t serializar_instruccion(t_buffer* buffer, instruccion* instruccion, uint
 t_buffer* serializar_header(pcb* header){
 	t_buffer* buffer = malloc(sizeof(t_buffer));
 	uint32_t offset = 0;
-	uint32_t buffer_size = 6*sizeof(uint32_t) + header->tamanio_stream_instrucciones + 3*sizeof(float); //aca dudo si esta bien el calculo dejamos el tam paginas
+	uint32_t buffer_size = 6*sizeof(uint32_t) + header->tamanio_stream_instrucciones + 3*sizeof(long); //aca dudo si esta bien el calculo dejamos el tam paginas
 
 	buffer->size = buffer_size; // Parámetros
 
@@ -265,14 +265,14 @@ t_buffer* serializar_header(pcb* header){
 	memcpy(buffer->stream + offset, &header->tabla_paginas, sizeof(uint32_t));
 	offset += sizeof(uint32_t);
 
-	memcpy(buffer->stream + offset, &header->estimacion_siguiente, sizeof(float));
-	offset += sizeof(float);
+	memcpy(buffer->stream + offset, &header->estimacion_siguiente, sizeof(long));
+	offset += sizeof(long);
 
-	memcpy(buffer->stream + offset, &header->timestamp_inicio_exe, sizeof(float));
-	offset += sizeof(float);
+	memcpy(buffer->stream + offset, &header->timestamp_inicio_exe, sizeof(long));
+	offset += sizeof(long);
 
-	memcpy(buffer->stream + offset, &header->real_actual, sizeof(float));
-	offset += sizeof(float);
+	memcpy(buffer->stream + offset, &header->real_actual, sizeof(long));
+	offset += sizeof(long);
 
 	memcpy(buffer->stream + offset, &header->socket_consola, sizeof(int));
 

@@ -86,9 +86,9 @@ typedef struct
 	t_list* instrucciones;
 	uint32_t program_counter;
 	uint32_t tabla_paginas; // cambiamos a uint32_t, hay que cambiar las serializaciones
-	float estimacion_siguiente;
-	float timestamp_inicio_exe;
-	float real_actual;
+	long estimacion_siguiente;
+	long timestamp_inicio_exe;
+	long real_actual;
 	int socket_consola;
 } pcb;
 

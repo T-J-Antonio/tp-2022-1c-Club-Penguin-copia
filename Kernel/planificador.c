@@ -116,7 +116,7 @@ void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la
 
 
 void pasar_a_running(pcb* proceso_ready){
-	proceso_ready->timestamp_inicio_exe = ((float)currentTimeMillis());
+	proceso_ready->timestamp_inicio_exe = (currentTimeMillis());
 	//printf("tamanio = %d",proceso_ready->tamanio_stream_instrucciones);
 	log_info(logger, "El proceso %d se va a running, su estimacion es: %f", proceso_ready->pid, proceso_ready->estimacion_siguiente);
 	t_buffer* pcb_serializado = malloc(sizeof(t_buffer));
@@ -131,12 +131,12 @@ void* realizar_io(void* proceso_sin_castear){
 	pcb* proceso = (pcb*)proceso_sin_castear;
 	log_info(logger, "El proceso %d accede al dispositivo IO\n", proceso->pid);
 
-	float aux [2];
+	long aux [2];
 	char* string_pid = string_itoa(proceso->pid);
 	void* temporal =  dictionary_get(pid_handler, string_pid);
-	memcpy(aux, temporal, sizeof(float)*2);
+	memcpy(aux, temporal, sizeof(long)*2);
 	char* estado = (char*) dictionary_get(process_state, string_pid);
-	float timestamp_aux = (float)currentTimeMillis();
+	long timestamp_aux = currentTimeMillis();
 	if(strcmp(estado, "blocked")==0){
 		int cupo_restante = tiempo_de_espera_max - (timestamp_aux - aux[1]);
 		if(cupo_restante > (int)aux[0]){
@@ -210,11 +210,11 @@ void* dispositivo_io(void* nada){ //ESTE HAY QUE HACERLE UN HILO
 			}else sem_post(&signal_a_io);
 			for(int i=1; i<=cantidad_en_io; i++ ){
 				usleep(((useconds_t)5) * (useconds_t)1000);
-				float tiempo_actual = (float)currentTimeMillis();
+				long tiempo_actual = currentTimeMillis();
 				// checkear si la diferencia entre tiempo de pcb y actual es mayor a la espera maxima, entonces subo el grado de multiprogramacion
 				pcb* proceso_sus = (pcb*) queue_pop(cola_de_io);
 				char* string_pid = string_itoa(proceso_sus->pid);
-				float* io  = (float*) dictionary_get(pid_handler, string_pid);
+				long* io  = (long*) dictionary_get(pid_handler, string_pid);
 				char* estado = (char*) dictionary_get(process_state, string_pid);
 				
 				if((tiempo_actual - io[1]) > tiempo_de_espera_max && strcmp(estado, "blocked")==0) {
@@ -240,7 +240,7 @@ void* recibir_pcb_de_cpu(void* nada){
 
 	while(1){
 		//printf("espero a recibir op\n");
-		float io[2];
+		long io[2];
 		int dato;
 		int fin_proc = FINALIZAR_PROCESO;
 		int rta;
@@ -254,8 +254,8 @@ void* recibir_pcb_de_cpu(void* nada){
 				dato = recibir_operacion(conexion_CPU_dispatch);
 				recibir_pcb(conexion_CPU_dispatch, proceso_recibido);
 
-				io[0] = (float)dato;
-				io[1] = (float)currentTimeMillis();
+				io[0] = (long)dato;
+				io[1] = currentTimeMillis();
 				char* string_pid = string_itoa(proceso_recibido->pid);
 				proceso_recibido->real_actual = io[1] - proceso_recibido->timestamp_inicio_exe;
 				log_info(logger, "vengo a hacer io: %d, mi nuevo real actual es: %f", proceso_recibido->pid, proceso_recibido->real_actual);
@@ -294,9 +294,9 @@ void* recibir_pcb_de_cpu(void* nada){
 
 				log_info(logger, "El proceso %d fue interrumpido y su est es originalmente:%f", ejecutado->pid, ejecutado->estimacion_siguiente);
 
-				log_info(logger, "tiempo de inicio a exe: %f, tiempo actual: %f", ejecutado->timestamp_inicio_exe, ((float)currentTimeMillis()));
+				log_info(logger, "tiempo de inicio a exe: %f, tiempo actual: %f", ejecutado->timestamp_inicio_exe, (currentTimeMillis()));
 
-				ejecutado->estimacion_siguiente = ejecutado->estimacion_siguiente - (((float)currentTimeMillis()) - ejecutado->timestamp_inicio_exe);
+				ejecutado->estimacion_siguiente = ejecutado->estimacion_siguiente - ((currentTimeMillis()) - ejecutado->timestamp_inicio_exe);
 				sem_post(&binario_flag_interrupt);
 
 				break;

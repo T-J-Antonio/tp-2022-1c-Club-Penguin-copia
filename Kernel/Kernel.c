@@ -40,7 +40,7 @@ int main(void) {
 	if(strcmp(modo_de_planificacion, "FIFO") ==0)int_modo_planificacion = 21;
 	if(strcmp(modo_de_planificacion, "SRT") ==0)int_modo_planificacion = 22;
 
-	tiempo_de_espera_max = (float) config_get_int_value(config, "TIEMPO_MAXIMO_BLOQUEADO");
+	tiempo_de_espera_max = (long) config_get_int_value(config, "TIEMPO_MAXIMO_BLOQUEADO");
 
 	uint grado_de_multiprogramacion = config_get_int_value(config, "GRADO_MULTIPROGRAMACION");
 	sem_init(&sem_contador_multiprogramacion, 0, grado_de_multiprogramacion);
@@ -51,8 +51,8 @@ int main(void) {
 
 	char* puerto_interrupt = config_get_string_value(config, "PUERTO_CPU_INTERRUPT");
 
-	estimacion_inicial = (float) config_get_int_value(config, "ESTIMACION_INICIAL");
-	alfa = (float) config_get_int_value(config, "ALFA");
+	estimacion_inicial = (long) config_get_int_value(config, "ESTIMACION_INICIAL");
+	alfa = (long) config_get_int_value(config, "ALFA");
 
 	conexion_CPU_dispatch = crear_conexion(ip_CPU, puerto_CPU);
 

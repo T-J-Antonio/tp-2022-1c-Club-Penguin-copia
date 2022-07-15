@@ -65,9 +65,9 @@ typedef struct
 	void* instrucciones;
 	uint32_t program_counter;
 	uint32_t tabla_paginas;
-	float estimacion_siguiente;
-	float timestamp_inicio_exe;
-	float real_actual;
+	long estimacion_siguiente;
+	long timestamp_inicio_exe;
+	long real_actual;
 	int socket_consola;
 } pcb;
 
@@ -120,13 +120,13 @@ int conexion_memoria;
 uint32_t proximo_pid;
 uint32_t resultOk;
 
-float estimacion_inicial;
-float alfa;
+long estimacion_inicial;
+long alfa;
 
 int flag_respuesta_a_interrupcion; //CORREGIR INTERRUPCION CON DOBLE R
 int conexion_cpu_interrupt;
-float tiempo_de_espera_max;
-float tiempo_inicio;
+long tiempo_de_espera_max;
+long tiempo_inicio;
 int int_modo_planificacion;
 
 long currentTimeMillis();
@@ -146,7 +146,7 @@ void liberar_conexion(int socket_cliente);
 t_buffer* serializar_header(pcb*);
 void* recibir_buffer(int*, int);
 void* recibir_instrucciones(int);
-void crear_header(uint32_t, void*, t_config*, pcb*, float);
+void crear_header(uint32_t, void*, t_config*, pcb*, long);
 void empaquetar_y_enviar(t_buffer*, int, uint32_t);
 
 void recibir_pcb(int , pcb* );
