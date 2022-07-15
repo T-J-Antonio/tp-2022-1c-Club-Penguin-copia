@@ -190,9 +190,10 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 	sem_wait(&mutex_interrupciones);
 	if(hay_interrupciones){
 
-		if(cod_op == I_O || cod_op == EXIT)
+		if(cod_op == I_O || cod_op == EXIT){
 			send(socket_escucha_dispatch, &cpu_libre, sizeof(uint32_t), 0);
 			log_info(logger, "llego int pero estoy libre");
+		}
 		else{
 			log_info(logger, "llego int y desalojo al proceso: %d", proceso_en_ejecucion->pid);
 			pcb_actualizado = serializar_header(proceso_en_ejecucion);
