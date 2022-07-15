@@ -118,7 +118,7 @@ void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la
 void pasar_a_running(pcb* proceso_ready){
 	proceso_ready->timestamp_inicio_exe = (currentTimeMillis());
 	//printf("tamanio = %d",proceso_ready->tamanio_stream_instrucciones);
-	log_info(logger, "El proceso %d se va a running, su estimacion es: %f", proceso_ready->pid, proceso_ready->estimacion_siguiente);
+	log_info(logger, "El proceso %d se va a running, su estimacion es: %ld", proceso_ready->pid, proceso_ready->estimacion_siguiente);
 	t_buffer* pcb_serializado = malloc(sizeof(t_buffer));
 	pcb_serializado = serializar_header(proceso_ready);
 	empaquetar_y_enviar(pcb_serializado, conexion_CPU_dispatch, OPERACION_ENVIO_PCB);
@@ -258,7 +258,7 @@ void* recibir_pcb_de_cpu(void* nada){
 				io[1] = currentTimeMillis();
 				char* string_pid = string_itoa(proceso_recibido->pid);
 				proceso_recibido->real_actual = io[1] - proceso_recibido->timestamp_inicio_exe;
-				log_info(logger, "vengo a hacer io: %d, mi nuevo real actual es: %f", proceso_recibido->pid, proceso_recibido->real_actual);
+				log_info(logger, "vengo a hacer io: %d, mi nuevo real actual es: %ld", proceso_recibido->pid, proceso_recibido->real_actual);
 				sem_wait(&mutex_cola_suspendido);
 
 				dictionary_put(pid_handler, string_pid, (void*) io);
@@ -292,9 +292,9 @@ void* recibir_pcb_de_cpu(void* nada){
 				recibir_pcb(conexion_CPU_dispatch, ejecutado);
 				queue_push(rta_int, (void*) ejecutado);
 
-				log_info(logger, "El proceso %d fue interrumpido y su est es originalmente:%f", ejecutado->pid, ejecutado->estimacion_siguiente);
+				log_info(logger, "El proceso %d fue interrumpido y su est es originalmente:%ld", ejecutado->pid, ejecutado->estimacion_siguiente);
 
-				log_info(logger, "tiempo de inicio a exe: %f, tiempo actual: %f", ejecutado->timestamp_inicio_exe, (currentTimeMillis()));
+				log_info(logger, "tiempo de inicio a exe: %ld, tiempo actual: %ld", ejecutado->timestamp_inicio_exe, (currentTimeMillis()));
 
 				ejecutado->estimacion_siguiente = ejecutado->estimacion_siguiente - ((currentTimeMillis()) - ejecutado->timestamp_inicio_exe);
 				sem_post(&binario_flag_interrupt);
@@ -338,10 +338,10 @@ void* planificador_de_corto_plazo(void* nada){
 			switch(flag_respuesta_a_interrupcion){
 				case 1:{
 					pcb* ejecutado = (pcb*) queue_pop(rta_int);
-					log_info(logger, "se me interrumpio: %d, mi nueva estimacion es: %f", ejecutado->pid, ejecutado->estimacion_siguiente);
+					log_info(logger, "se me interrumpio: %d, mi nueva estimacion es: %ld", ejecutado->pid, ejecutado->estimacion_siguiente);
 					log_info(logger, "caso 1 desaloje al proceso: %d", ejecutado->pid);
 					candidato_del_stack = algoritmo_srt(); //ver quien es el mas corto en la lista de ready
-					log_info(logger, "El planificador desalojado tiene estimacion: %f, y el candidato: %f", ejecutado->estimacion_siguiente, candidato_del_stack->estimacion_siguiente);
+					log_info(logger, "El planificador desalojado tiene estimacion: %ld, y el candidato: %ld", ejecutado->estimacion_siguiente, candidato_del_stack->estimacion_siguiente);
 					if(ejecutado->estimacion_siguiente <= candidato_del_stack->estimacion_siguiente){ //aca se fija si el de la cpu es mas corto y lo pone en running
 						log_info(logger, "el que pasa a running es: %d", ejecutado->pid);
 						pasar_a_running(ejecutado);
@@ -430,6 +430,6 @@ void remover_de_cola_ready(pcb* item){
 
 void hacer_cuenta_srt(pcb* proceso_deseado){ //esto hay que llamarlo dentro de los semaforos
 	proceso_deseado->estimacion_siguiente = proceso_deseado->real_actual * alfa + (proceso_deseado->estimacion_siguiente * (1 - alfa));
-	log_info(logger, "recalcule la estimacion del proceso: %d, su nueva estimacion es: %f", proceso_deseado->pid, proceso_deseado->estimacion_siguiente);
+	log_info(logger, "recalcule la estimacion del proceso: %d, su nueva estimacion es: %ld", proceso_deseado->pid, proceso_deseado->estimacion_siguiente);
 	
 }
