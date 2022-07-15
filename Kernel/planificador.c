@@ -437,6 +437,7 @@ void remover_de_cola_ready(pcb* item){
 
 void hacer_cuenta_srt(pcb* proceso_deseado){ //esto hay que llamarlo dentro de los semaforos
 	proceso_deseado->estimacion_siguiente = proceso_deseado->real_actual * alfa + (proceso_deseado->estimacion_siguiente * (1 - alfa));
+	log_info(logger, "datos para recalcular: real: %ld, alfa: %ld, est_sig: %ld", proceso_deseado->real_actual, alfa, proceso_deseado->estimacion_siguiente);
 	log_info(logger, "recalcule la estimacion del proceso: %d, su nueva estimacion es: %ld", proceso_deseado->pid, proceso_deseado->estimacion_siguiente);
 	
 }
