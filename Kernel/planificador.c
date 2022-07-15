@@ -118,7 +118,7 @@ void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la
 void pasar_a_running(pcb* proceso_ready){
 	proceso_ready->timestamp_inicio_exe = ((float)time(NULL)*1000);
 	//printf("tamanio = %d",proceso_ready->tamanio_stream_instrucciones);
-	log_info(logger, "El proceso %d se va a running, su estimacion es:", proceso_ready->pid, proceso_ready->estimacion_siguiente);
+	log_info(logger, "El proceso %d se va a running, su estimacion es: %f", proceso_ready->pid, proceso_ready->estimacion_siguiente);
 	t_buffer* pcb_serializado = malloc(sizeof(t_buffer));
 	pcb_serializado = serializar_header(proceso_ready);
 	empaquetar_y_enviar(pcb_serializado, conexion_CPU_dispatch, OPERACION_ENVIO_PCB);
