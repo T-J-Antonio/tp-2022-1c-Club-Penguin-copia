@@ -227,7 +227,7 @@ void* atender_kernel(void* input){
 			index = recibir_operacion(cliente_fd);
 			suspender_proceso(index);
 			send(cliente_fd, &rtaOk, sizeof(u_int32_t), 0);
-			log_info(logger, "Proceso reanudado");
+			log_info(logger, "Suspendi proceso");
 		break;
 		}
 	}
