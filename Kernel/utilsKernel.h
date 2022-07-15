@@ -123,7 +123,7 @@ uint32_t proximo_pid;
 uint32_t resultOk;
 
 long estimacion_inicial;
-long alfa;
+double alfa;
 
 int flag_respuesta_a_interrupcion; //CORREGIR INTERRUPCION CON DOBLE R
 int conexion_cpu_interrupt;

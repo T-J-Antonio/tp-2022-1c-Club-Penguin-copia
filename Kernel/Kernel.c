@@ -53,7 +53,7 @@ int main(void) {
 	char* puerto_interrupt = config_get_string_value(config, "PUERTO_CPU_INTERRUPT");
 
 	estimacion_inicial = (long) config_get_int_value(config, "ESTIMACION_INICIAL");
-	alfa = (long) config_get_int_value(config, "ALFA");
+	alfa = config_get_double_value(config, "ALFA");
 
 	conexion_CPU_dispatch = crear_conexion(ip_CPU, puerto_CPU);
 
