@@ -109,6 +109,7 @@ void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
 				if(ejecutada->cod_op == I_O || ejecutada->cod_op == EXIT || se_fue_por_int){
 					liberar_pcb(recibido);
 					sem_wait(&cpu_en_running);
+					se_fue_por_int = 0;
 					break;
 				}
 			}
