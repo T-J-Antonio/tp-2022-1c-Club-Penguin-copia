@@ -4,6 +4,7 @@ void* escuchar_kernel(int, t_config*);
 void* escuchar_interrupciones(int, t_config*);
 void ciclo_de_instruccion(pcb*, int);
 int hay_interrupciones = 0;
+int se_fue_por_int = 0;
 uint32_t cpu_libre = 4;
 
 int main(){
@@ -105,7 +106,7 @@ void* escuchar_kernel(int socket_escucha_dispatch, t_config* config){
 				ciclo_de_instruccion(recibido, socket_escucha_dispatch);//aca cambio el cliente por socket ojo
 				instruccion* ejecutada = list_get(recibido->instrucciones, recibido->program_counter - 1);
 				//si la instrucción que acabo de ejecutar es I_O o EXIT, no debo seguir el ciclo
-				if(ejecutada->cod_op == I_O || ejecutada->cod_op == EXIT){
+				if(ejecutada->cod_op == I_O || ejecutada->cod_op == EXIT || se_fue_por_int){
 					liberar_pcb(recibido);
 					sem_wait(&cpu_en_running);
 					break;
@@ -199,6 +200,7 @@ void ciclo_de_instruccion(pcb* proceso_en_ejecucion, int socket_escucha_dispatch
 			pcb_actualizado = serializar_header(proceso_en_ejecucion);
 			empaquetar_y_enviar(pcb_actualizado, socket_escucha_dispatch, RESPUESTA_INTERRUPT);
 			vaciar_tlb();
+			se_fue_por_int = 1;
 		}
 		hay_interrupciones--;
 	}
