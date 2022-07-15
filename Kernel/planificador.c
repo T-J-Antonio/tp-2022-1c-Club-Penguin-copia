@@ -293,9 +293,7 @@ void* recibir_pcb_de_cpu(void* nada){
 
 				log_info(logger, "El proceso %d fue interrumpido y su est es originalmente:%ld", proceso_recibido->pid, proceso_recibido->estimacion_siguiente);
 
-				log_info(logger, "tiempo de inicio a exe: %ld, tiempo actual: %ld", proceso_recibido->timestamp_inicio_exe, (currentTimeMillis()));
-
-				//proceso_recibido->estimacion_siguiente = proceso_recibido->estimacion_siguiente - ((currentTimeMillis()) - proceso_recibido->timestamp_inicio_exe);
+				proceso_recibido->real_actual += currentTimeMillis() - proceso_recibido->timestamp_inicio_exe;
 				sem_wait(&mutex_respuesta_interrupt);
 				queue_push(rta_int, (void*) proceso_recibido);
 				sem_post(&mutex_respuesta_interrupt);
@@ -346,7 +344,7 @@ void* planificador_de_corto_plazo(void* nada){
 					log_info(logger, "caso 1 desaloje al proceso: %d", ejecutado->pid);
 					candidato_del_stack = algoritmo_srt(); //ver quien es el mas corto en la lista de ready
 					log_info(logger, "El planificador desalojado tiene estimacion: %ld, y el candidato: %ld", ejecutado->estimacion_siguiente, candidato_del_stack->estimacion_siguiente);
-					if((ejecutado->estimacion_siguiente - ((currentTimeMillis()) - ejecutado->timestamp_inicio_exe)) <= candidato_del_stack->estimacion_siguiente){ //aca se fija si el de la cpu es mas corto y lo pone en running
+					if((ejecutado->estimacion_siguiente - ((currentTimeMillis()) - ejecutado->timestamp_inicio_exe)) <= (candidato_del_stack->estimacion_siguiente - candidato_del_stack->real_actual)){ //aca se fija si el de la cpu es mas corto y lo pone en running
 						log_info(logger, "el que pasa a running es: %d, gano el que estaba en cpu", ejecutado->pid);
 						pasar_a_running(ejecutado);
 						sem_post(&binario_lista_ready);
@@ -360,6 +358,7 @@ void* planificador_de_corto_plazo(void* nada){
 						sem_wait(&mutex_cola_ready);
 						queue_push(cola_de_ready, ejecutado);
 						sem_post(&mutex_cola_ready);
+						sem_post(&binario_lista_ready);
 					}
 
 					break;
@@ -437,6 +436,7 @@ void remover_de_cola_ready(pcb* item){
 
 void hacer_cuenta_srt(pcb* proceso_deseado){ //esto hay que llamarlo dentro de los semaforos
 	proceso_deseado->estimacion_siguiente = proceso_deseado->real_actual * alfa + (proceso_deseado->estimacion_siguiente * (1 - alfa));
+	proceso_deseado->real_actual = 0;
 	log_info(logger, "recalcule la estimacion del proceso: %d, su nueva estimacion es: %ld", proceso_deseado->pid, proceso_deseado->estimacion_siguiente);
 	
 }
