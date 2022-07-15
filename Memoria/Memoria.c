@@ -411,6 +411,7 @@ void suspender_proceso(int index_tabla){
 			tabla_de_segundo_nivel * pagina = list_get(tabla_2do_nivel, iterator_2do_nivel);
 			if(pagina->bit_modificado == 1 && pagina->bit_presencia == 1){
 				volcar_pagina_en_swap(pid, pagina->numero_pagina * tam_pagina, espacio_memoria_user + (pagina->marco *tam_pagina));
+				//log_info(logger, "Se lleva la Pagina %d a swap", pagina);
 				pagina->bit_de_uso = 0;
 				pagina->bit_modificado = 0;
 				pagina->bit_presencia = 0;
@@ -561,6 +562,7 @@ int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ /
 				dato->bit_de_uso = 0;
 				if(dato->bit_modificado){
 					volcar_pagina_en_swap(pid, (dato->numero_pagina * tam_pagina), espacio_memoria_user + (dato->marco * tam_pagina));
+					//log_info(logger, "Se lleva la Pagina %d a swap", (numero_pagina o pagina));
 					dato->bit_modificado = 0;
 				}
 				return adm->offset; // ojo el puntero deberia quedar apuntando al siguiente
@@ -585,6 +587,7 @@ int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ /
 						dato->bit_de_uso = 0;
 						if(dato->bit_modificado){
 							volcar_pagina_en_swap(pid, (dato->numero_pagina * tam_pagina), espacio_memoria_user + (dato->marco * tam_pagina));
+							//log_info(logger, "Se lleva la Pagina %d a swap", (numero_pagina o pagina));
 							dato->bit_modificado = 0;
 						}
 						return adm->offset;
@@ -597,6 +600,7 @@ int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ /
 						dato->bit_de_uso = 0;
 						if(dato->bit_modificado){
 							volcar_pagina_en_swap(pid, (dato->numero_pagina * tam_pagina), espacio_memoria_user + (dato->marco * tam_pagina));
+							//log_info(logger, "Se lleva la Pagina %d a swap", (numero_pagina o pagina));
 							dato->bit_modificado = 0;
 						}
 						return adm->offset;
