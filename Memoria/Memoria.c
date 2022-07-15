@@ -536,7 +536,8 @@ tabla_de_segundo_nivel* retornar_pagina(int indice_pagina, int marco_asignado){
 	
 	for(int i = 0; i< cantidad_pags; i++){
 		
-		t_list* tabla_dos = (t_list*)list_get(tabla_1er_nivel, i);
+		int indice_tabla_dos = *(int*)list_get(tabla_1er_nivel, i);
+		t_list* tabla_dos = (t_list*)list_get(lista_global_de_tablas_de_2do_nivel, indice_tabla_dos);
 		int cant_entradas = list_size(tabla_dos);
 		
 		for(int c = 0; c< cant_entradas; c++){
