@@ -168,7 +168,7 @@ void escribir_en_posicion(uint32_t direccion_fisica, uint32_t dato_a_escribir, u
 	tabla_de_segundo_nivel* tabla = get_tabla(pid, nro_pag);
 	tabla->bit_de_uso =1;
 	tabla->bit_modificado =1;
-	log_info(logger, "Escrito dato: %d\n", dato_a_escribir);
+	log_info(logger, "fue escrito dato: %d\n", dato_a_escribir);
 }
 
 
@@ -282,6 +282,7 @@ void crear_swap(int pid, int cantidad_de_marcos){
 void volcar_pagina_en_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
 	sem_wait(&mutex_swap);
 	//retardo de escritura
+	log_info(logger, "accesso a swap de escritura");
 	usleep((useconds_t)retardo_swap * (useconds_t)1000);
 	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, string_itoa(pid));
 	memcpy(swap_map->swap_map + dezplazamiento, dato, tam_pagina);
@@ -292,6 +293,7 @@ void leer_pagina_de_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
 	//retardo de lectura
 	sem_wait(&mutex_swap);
 	usleep((useconds_t)retardo_swap * (useconds_t)1000);
+	log_info(logger, "accesso a swap de lectura");
 	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, string_itoa(pid));
 	memcpy(dato, swap_map->swap_map + dezplazamiento, tam_pagina);
 	sem_post(&mutex_swap);
@@ -411,7 +413,7 @@ void suspender_proceso(int index_tabla){
 			tabla_de_segundo_nivel * pagina = list_get(tabla_2do_nivel, iterator_2do_nivel);
 			if(pagina->bit_modificado == 1 && pagina->bit_presencia == 1){
 				volcar_pagina_en_swap(pid, pagina->numero_pagina * tam_pagina, espacio_memoria_user + (pagina->marco *tam_pagina));
-				//log_info(logger, "Se lleva la Pagina %d a swap", pagina);
+				log_info(logger, "Se lleva la Pagina %d a swap", pagina->numero_pagina);
 				pagina->bit_de_uso = 0;
 				pagina->bit_modificado = 0;
 				pagina->bit_presencia = 0;
@@ -561,9 +563,10 @@ int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ /
 			if(dato->bit_de_uso ==0){
 				dato->bit_presencia = 0; 
 				dato->bit_de_uso = 0;
+				log_info(logger, "reemplazo el marco %d", adm->marcos_asignados[adm->offset]);
+				log_info(logger, "que tiene la pagina %d", dato->numero_pagina);
 				if(dato->bit_modificado){
 					volcar_pagina_en_swap(pid, (dato->numero_pagina * tam_pagina), espacio_memoria_user + (dato->marco * tam_pagina));
-					//log_info(logger, "Se lleva la Pagina %d a swap", (numero_pagina o pagina));
 					dato->bit_modificado = 0;
 				}
 				return adm->offset; // ojo el puntero deberia quedar apuntando al siguiente
@@ -586,9 +589,10 @@ int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ /
 					if((dato->bit_de_uso ==0) && (dato->bit_modificado == 0)){
 						dato->bit_presencia = 0; 
 						dato->bit_de_uso = 0;
+						log_info(logger, "reemplazo el marco %d %d a swap", adm->marcos_asignados[adm->offset]);
+						log_info(logger, "que tiene la pagina %d", dato->numero_pagina);
 						if(dato->bit_modificado){
 							volcar_pagina_en_swap(pid, (dato->numero_pagina * tam_pagina), espacio_memoria_user + (dato->marco * tam_pagina));
-							//log_info(logger, "Se lleva la Pagina %d a swap", (numero_pagina o pagina));
 							dato->bit_modificado = 0;
 						}
 						return adm->offset;
@@ -599,9 +603,9 @@ int reemplazar_marco(estructura_administrativa_de_marcos* adm, uint32_t pid ){ /
 					if((dato->bit_de_uso ==0) && (dato->bit_modificado == 1)){
 						dato->bit_presencia = 0; 
 						dato->bit_de_uso = 0;
+						log_info(logger, "Se lleva la Pagina %d a swap", adm->marcos_asignados[adm->offset]);
 						if(dato->bit_modificado){
 							volcar_pagina_en_swap(pid, (dato->numero_pagina * tam_pagina), espacio_memoria_user + (dato->marco * tam_pagina));
-							//log_info(logger, "Se lleva la Pagina %d a swap", (numero_pagina o pagina));
 							dato->bit_modificado = 0;
 						}
 						return adm->offset;
