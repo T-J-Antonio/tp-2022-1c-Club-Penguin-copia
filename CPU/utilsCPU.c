@@ -1,5 +1,12 @@
 #include "utilsCPU.h"
 
+long currentTimeMillis() {
+  struct timeval time;
+  gettimeofday(&time, NULL);
+
+  return time.tv_sec * 1000 + time.tv_usec / 1000;
+}
+
 int iniciar_servidor(char* ip, char* puerto){
 	int socket_servidor;
 
@@ -341,7 +348,7 @@ void guardar_en_TLB(uint32_t nro_pagina, uint32_t nro_marco) {
 	
 	nueva_entrada->pagina = nro_pagina;
 	nueva_entrada->marco = nro_marco;
-	nueva_entrada->timestamp = (float)time(NULL)*1000;
+	nueva_entrada->timestamp = currentTimeMillis();
 	
 	if(queue_size(TLB) < cantidad_entradas_TLB) {
 		queue_push(TLB, nueva_entrada);
@@ -367,7 +374,7 @@ uint32_t esta_en_TLB(uint32_t nro_pagina){
 	for(uint32_t i = 0; i < queue_size(TLB); i++){
 		entrada_tlb* una_entrada = queue_pop(TLB);
 		if (una_entrada->pagina == nro_pagina){
-			una_entrada->timestamp = (float)time(NULL)*1000;
+			una_entrada->timestamp = currentTimeMillis();
 			se_encontro = 1;
 		}
 		queue_push(TLB, una_entrada);
@@ -380,7 +387,7 @@ void actualizar_TLB(uint32_t nro_pagina, uint32_t nro_marco){
 		entrada_tlb* una_entrada = queue_pop(TLB);
 		if (una_entrada->marco == nro_marco){
 			una_entrada->pagina = nro_pagina;
-			una_entrada->timestamp = (float)time(NULL)*1000;
+			una_entrada->timestamp = currentTimeMillis();
 		}
 		queue_push(TLB, una_entrada);
 	}
@@ -433,7 +440,7 @@ uint32_t obtener_marco_de_TLB(uint32_t nro_pagina_a_buscar){
 	for(uint32_t i = 0; i < queue_size(TLB); i++){
 		entrada_tlb* una_entrada = queue_pop(TLB);
 		if (una_entrada->pagina == nro_pagina_a_buscar){
-			una_entrada->timestamp = (float)time(NULL)*1000;
+			una_entrada->timestamp = currentTimeMillis();
 			auxiliar_marco = una_entrada->marco;
 		}
 		queue_push(TLB, una_entrada);

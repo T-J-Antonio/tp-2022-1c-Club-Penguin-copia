@@ -17,6 +17,7 @@ t_dictionary* diccionario_pid;
 t_dictionary* diccionario_marcos;
 t_dictionary* diccionario_swap;
 uint32_t* estado_de_marcos;
+sem_t mutex_swap;
 
 
 
@@ -43,6 +44,8 @@ int main(){
 	t_config* config = config_create("/home/utnso/Documentos/tp-2022-1c-Club-Penguin/Memoria/memoria.config");
 	logger = log_create("Memoria.log", "Memoria", 1, LOG_LEVEL_DEBUG);
 
+	sem_init(&mutex_swap, 0, 1);
+
 	char* ip_memoria = config_get_string_value(config, "IP_MEMORIA");
 	char* puerto_escucha = config_get_string_value(config, "PUERTO_ESCUCHA");
 
@@ -60,11 +63,10 @@ int main(){
 
 	alg_reemplazo = config_get_string_value(config, "ALGORITMO_REEMPLAZO");
 
-	retardo_swap = (float) config_get_int_value(config, "RETARDO_SWAP");
-	retardo_mem = (float) config_get_int_value(config, "RETARDO_MEMORIA");
+	retardo_swap = config_get_int_value(config, "RETARDO_SWAP");
+	retardo_mem = config_get_int_value(config, "RETARDO_MEMORIA");
 
 	entradas_por_tabla = config_get_int_value(config, "ENTRADAS_POR_TABLA");
-	retardo_swap = config_get_int_value(config, "RETARDO_SWAP");
 	diccionario_pid = dictionary_create();
 	diccionario_marcos = dictionary_create();
 	diccionario_swap = dictionary_create();
@@ -256,6 +258,7 @@ void* escuchar(int socket_memoria_escucha){
 // aca dentro de leer y escribir puedo meter los delays
 
 void crear_swap(int pid, int cantidad_de_marcos){
+	sem_wait(&mutex_swap);
 	swap_struct* swp = malloc(sizeof(swap_struct));
 	
 	swp->path_swap = malloc(strlen(path_swap) + strlen(string_itoa(pid)) + 5);
@@ -271,25 +274,31 @@ void crear_swap(int pid, int cantidad_de_marcos){
  
 	dictionary_put(diccionario_swap, string_itoa(pid), (void*)swp);
 	close(swp_file);
+	sem_post(&mutex_swap);
 }
 
 
 
 void volcar_pagina_en_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
+	sem_wait(&mutex_swap);
 	//retardo de escritura
 	usleep((useconds_t)retardo_swap * (useconds_t)1000);
 	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, string_itoa(pid));
 	memcpy(swap_map->swap_map + dezplazamiento, dato, tam_pagina);
+	sem_post(&mutex_swap);
 }
 
 void leer_pagina_de_swap(uint32_t pid, uint32_t dezplazamiento, void* dato){
 	//retardo de lectura
+	sem_wait(&mutex_swap);
 	usleep((useconds_t)retardo_swap * (useconds_t)1000);
 	swap_struct* swap_map = (swap_struct *) dictionary_get(diccionario_swap, string_itoa(pid));
 	memcpy(dato, swap_map->swap_map + dezplazamiento, tam_pagina);
+	sem_post(&mutex_swap);
 }
 
 void eliminar_swap(uint32_t pid, uint32_t memoria_total){
+	sem_wait(&mutex_swap);
 	swap_struct* swap_map = (swap_struct *) dictionary_remove(diccionario_swap, string_itoa(pid));
 	munmap(swap_map->swap_map, memoria_total); 
 	
@@ -297,6 +306,7 @@ void eliminar_swap(uint32_t pid, uint32_t memoria_total){
 	
 	free(swap_map->path_swap);
 	free(swap_map);
+	sem_post(&mutex_swap);
 
 }
 

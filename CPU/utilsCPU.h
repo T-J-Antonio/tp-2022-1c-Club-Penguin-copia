@@ -96,7 +96,7 @@ typedef struct
 {
 	uint32_t pagina;
 	uint32_t marco;
-	float timestamp;
+	long timestamp;
 } entrada_tlb;
 
 enum operaciones
@@ -116,6 +116,7 @@ int esperar_cliente(int);
 int recibir_operacion(int);
 //Dados IP y puerto del servidor, realiza el handshake con él para establecer la conexión
 int crear_conexion(char*, char*);
+long currentTimeMillis();
 
 //Cierra el socket pasado por parámetro
 void liberar_conexion(int);

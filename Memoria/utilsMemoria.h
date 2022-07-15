@@ -94,8 +94,8 @@ typedef struct{
 
 t_list* lista_de_tablas_de_primer_nivel;
 
-float retardo_mem;
-float retardo_swap;
+int retardo_mem;
+int retardo_swap;
 //FUNCIONES TRAÍDAS DEL TP0
 
 int iniciar_servidor(char*, char*);
