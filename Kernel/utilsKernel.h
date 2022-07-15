@@ -87,6 +87,8 @@ sem_t mutex_cola_sus_ready;
 
 sem_t mutex_cola_suspendido;
 
+sem_t mutex_respuesta_interrupt;
+
 sem_t binario_flag_interrupt;
 
 sem_t actualmente_replanificando;

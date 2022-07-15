@@ -49,11 +49,11 @@ void* escuchar_consola(int socket_kernel_escucha, t_config* config){
 
 void* funcion_pasar_a_ready(void* nada){ //aca vamos a tener que mandar a mem la peticion para que arme las tablas de paginas y me retorne el index
 	bool valor;
-	pcb* proceso = malloc(sizeof(pcb));
 	uint32_t rean_proc = REANUDAR_PROCESO;
 	uint32_t crear = CREAR_PROCESO;
 	int rta;
 	while(1){
+		pcb* proceso = malloc(sizeof(pcb));
 		sem_wait(&contador_de_listas_esperando_para_estar_en_ready);
 		sem_wait(&sem_contador_multiprogramacion);
 		sem_wait(&mutex_cola_sus_ready);
@@ -296,7 +296,9 @@ void* recibir_pcb_de_cpu(void* nada){
 				log_info(logger, "tiempo de inicio a exe: %ld, tiempo actual: %ld", proceso_recibido->timestamp_inicio_exe, (currentTimeMillis()));
 
 				proceso_recibido->estimacion_siguiente = proceso_recibido->estimacion_siguiente - ((currentTimeMillis()) - proceso_recibido->timestamp_inicio_exe);
+				sem_wait(&mutex_respuesta_interrupt);
 				queue_push(rta_int, (void*) proceso_recibido);
+				sem_post(&mutex_respuesta_interrupt);
 				sem_post(&binario_flag_interrupt);
 
 				break;
@@ -337,7 +339,9 @@ void* planificador_de_corto_plazo(void* nada){
 
 			switch(flag_respuesta_a_interrupcion){
 				case 1:{
+					sem_wait(&mutex_respuesta_interrupt);
 					pcb* ejecutado = (pcb*) queue_pop(rta_int);
+					sem_post(&mutex_respuesta_interrupt);
 					log_info(logger, "se me interrumpio: %d, mi nueva estimacion es: %ld", ejecutado->pid, ejecutado->estimacion_siguiente);
 					log_info(logger, "caso 1 desaloje al proceso: %d", ejecutado->pid);
 					candidato_del_stack = algoritmo_srt(); //ver quien es el mas corto en la lista de ready

@@ -18,6 +18,7 @@ int main(void) {
 	sem_init(&dispositivo_de_io, 0, 1);
 	sem_init(&binario_lista_ready, 0, 0);
 	sem_init(&binario_plani_corto, 0, 0);
+	sem_init(&mutex_respuesta_interrupt, 0, 1);
 
 
 	cola_procesos_nuevos = queue_create();
